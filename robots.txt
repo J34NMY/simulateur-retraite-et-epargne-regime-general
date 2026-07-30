@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://simulateur-citoyen.fr/simulateur-retraite-capitalisation/sitemap.xml
+Sitemap: https://simulateur-citoyen.fr/simulateur-retraite-et-epargne-regime-general/sitemap.xml
