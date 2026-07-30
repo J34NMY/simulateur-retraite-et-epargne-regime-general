@@ -174,18 +174,11 @@
       </div>
     </div>
 
-    <div class="row2" style="margin-top:20px;">
-      <div class="col">
-        <h3>Comparer plusieurs scénarios (optionnel)</h3>
-        <label for="scenarioMontants">Montants d'épargne mensuelle à comparer (séparés par des virgules)</label>
-        <input id="scenarioMontants" type="text" placeholder="Ex: 50, 100, 200" />
-        <small>Laissez vide pour ne comparer qu'un seul montant (celui saisi ci-dessus). Sinon, les résultats de chaque montant seront affichés côte à côte dans l'onglet Comparateur Épargne.</small>
-      </div>
-      <div class="col">
-        <h3>Export</h3>
-        <p style="font-size:.85rem;color:var(--gris-txt);margin-bottom:10px;">Une fois le calcul lancé, exportez vos résultats en PDF pour les conserver ou les partager.</p>
-        <button class="btn secondary" onclick="exporterResultatsPDF()">&#128196; Exporter en PDF</button>
-      </div>
+    <div class="col" style="margin-top:20px;">
+      <h3>Comparer plusieurs scénarios (optionnel)</h3>
+      <label for="scenarioMontants">Montants d'épargne mensuelle à comparer (séparés par des virgules)</label>
+      <input id="scenarioMontants" type="text" placeholder="Ex: 50, 100, 200" />
+      <small>Laissez vide pour ne comparer qu'un seul montant (celui saisi ci-dessus). Sinon, les résultats de chaque montant seront affichés côte à côte dans l'onglet Comparateur Épargne.</small>
     </div>
 
     <div class="actions">
@@ -196,10 +189,16 @@
 
   <div id="tab-resultats" class="tab-content">
     <div id="resultatRetraite"><div class="info">Renseignez l'onglet Paramètres puis cliquez sur "Calculer ma projection".</div></div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn secondary" onclick="exporterPDFRetraite()">&#128196; Exporter en PDF</button>
+    </div>
   </div>
 
   <div id="tab-epargne" class="tab-content">
     <div id="resultatEpargne"><div class="info">Renseignez l'onglet Paramètres puis cliquez sur "Calculer ma projection".</div></div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn secondary" onclick="exporterPDFEpargne()">&#128196; Exporter en PDF</button>
+    </div>
   </div>
 
   <div id="tab-sources" class="tab-content">
@@ -565,14 +564,13 @@
     chevron.innerHTML = open ? '&#9650;' : '&#9660;';
   }
 
-  function exporterResultatsPDF(){
-    if(!window.jspdf){ alert('Le module PDF est encore en cours de chargement, réessayez dans quelques secondes.'); return; }
+  function preparerDonneesPDF(){
     const dateNaissance = new Date(document.getElementById('dateNaissance').value);
     const dateDebutCarriere = new Date(document.getElementById('dateDebutCarriere').value);
     const dateRetraite = new Date(document.getElementById('dateDepartRetraite').value);
     if(!dateNaissance || isNaN(dateNaissance) || !dateRetraite || isNaN(dateRetraite)){
       alert('Merci de lancer un calcul complet avant d\'exporter en PDF.');
-      return;
+      return null;
     }
     const trimestresDejaAcquis = parseInt(document.getElementById('trimestresDejaAcquis').value) || 0;
     const pointsDejaAcquis = parseFloat(document.getElementById('pointsAgircArrcoDejaAcquis').value) || 0;
@@ -607,15 +605,27 @@
     const rPER = projeterEnv(epargneMensuelle, Math.max(0, rendementAnnuel - FRAIS_GESTION_PER));
     const netCTO = rCTO.capitalBrut - rCTO.gainBrut*0.314;
     const netPEA = rPEA.capitalBrut - rPEA.gainBrut*0.186;
-    const netPER = rPER.capitalBrut - (rPER.totalVerse*tmi + rPER.gainBrut*0.314);
+    const impotSortiePERVersements = rPER.totalVerse*tmi, impotSortiePERPlusValue = rPER.gainBrut*0.314;
+    const netPER = rPER.capitalBrut - (impotSortiePERVersements + impotSortiePERPlusValue);
     const meilleur = [{n:'CTO',v:netCTO},{n:'PEA',v:netPEA},{n:'PER',v:netPER}].reduce((a,b)=>b.v>a.v?b:a);
     const revenu4pct = meilleur.v*0.04/12;
 
+    const economieImpotMensuelle = epargneMensuelle * tmi;
+    const rPEAeconomie = projeterEnv(economieImpotMensuelle, rendementAnnuel);
+    const netEconomiePEA = rPEAeconomie.capitalBrut - rPEAeconomie.gainBrut*0.186;
+    const netPERCombine = netPER + netEconomiePEA;
+
+    return { dateNaissance, dateDebutCarriere, dateRetraite, salaireActuelBrut, hypothese, epargneMensuelle, tmi,
+      rendementAnnuel, labelIndice, dureeMois, proj, resPension, trimManquants, pensionArrcoMensuelle, pensionTotaleMensuelle,
+      rCTO, rPEA, rPER, netCTO, netPEA, netPER, meilleur, revenu4pct, economieImpotMensuelle, rPEAeconomie, netEconomiePEA, netPERCombine };
+  }
+
+  function creerConstructeurPDF(){
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF();
     let y=0; const lm=15, rm=195, pw=rm-lm;
     const BLEU=[30,64,175], VERT=[21,128,61], VIOLET=[109,40,217], GRIS=[249,250,251], GRISD=[100,116,139], NOIR=[15,23,42];
-    function nettoyer(t){return (t||'').replace(/→/g,'->').replace(/−/g,'-').replace(/—/g,'-').replace(/–/g,'-').replace(/·/g,'.').replace(/•/g,'-').replace(/✓/g,'v').replace(/⚠/g,'!').replace(/️/g,'').replace(/€/g,'EUR');}
+    function nettoyer(t){return (t||'').replace(/\u202F/g,' ').replace(/\u00A0/g,' ').replace(/→/g,'->').replace(/−/g,'-').replace(/—/g,'-').replace(/–/g,'-').replace(/·/g,'.').replace(/•/g,'-').replace(/✓/g,'v').replace(/⚠/g,'!').replace(/️/g,'').replace(/€/g,'EUR');}
     function sautPage(){doc.addPage();y=15;}
     function checkY(h){if(y+h>278)sautPage();}
     function titreSec(txt,c){checkY(12);doc.setFillColor(...c);doc.rect(lm-2,y-4,pw+4,10,'F');doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont(undefined,'bold');doc.text(nettoyer(txt),lm,y);doc.setTextColor(...NOIR);y+=9;}
@@ -638,48 +648,105 @@
       });
       y+=3;
     }
+    function entete(sousTitre){
+      doc.setFillColor(...BLEU);doc.rect(0,0,210,30,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont(undefined,'bold');
+      doc.text('SIMULATEUR RETRAITE PAR CAPITALISATION', 105, 12, {align:'center'});
+      doc.setFontSize(9);doc.setFont(undefined,'normal');
+      doc.text(nettoyer(sousTitre), 105, 20, {align:'center'});
+      doc.setFontSize(7.5);
+      doc.text('Document genere le ' + new Date().toLocaleDateString('fr-FR') + '  |  Outil educatif NON OFFICIEL', 105, 27, {align:'center'});
+      y=38;
+    }
+    function pied(){
+      checkY(20);
+      doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.line(lm,y,rm,y);y+=5;
+      ligneTexte('Outil educatif NON OFFICIEL. Projections en euros constants (pouvoir d\'achat d\'aujourd\'hui), hypotheses de rendement reel qui ne garantissent en rien les performances futures. Pour votre estimation retraite officielle : info-retraite.fr. Developpe benevolement par J34NMY avec l\'assistance de Claude (Anthropic).');
+    }
+    return { doc, entete, pied, titreSec, cartesDuo, banniere, ligneTexte, tableauSimple };
+  }
 
-    doc.setFillColor(...BLEU);doc.rect(0,0,210,30,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont(undefined,'bold');
-    doc.text('SIMULATEUR RETRAITE PAR CAPITALISATION', 105, 12, {align:'center'});
-    doc.setFontSize(9);doc.setFont(undefined,'normal');
-    doc.text('Salarie du regime general, debut de carriere', 105, 20, {align:'center'});
-    doc.setFontSize(7.5);
-    doc.text('Document genere le ' + new Date().toLocaleDateString('fr-FR') + '  |  Outil educatif NON OFFICIEL', 105, 27, {align:'center'});
-    y=38;
+  function exporterPDFRetraite(){
+    if(!window.jspdf){ alert('Le module PDF est encore en cours de chargement, réessayez dans quelques secondes.'); return; }
+    const d = preparerDonneesPDF();
+    if(!d) return;
+    const { doc, entete, pied, titreSec, cartesDuo, banniere, ligneTexte } = creerConstructeurPDF();
+    const BLEU=[30,64,175], VERT=[21,128,61], VIOLET=[109,40,217];
+
+    entete('Projection retraite - Salarie du regime general, debut de carriere');
 
     titreSec('PARAMETRES DE SIMULATION', BLEU);
-    cartesDuo('Naissance', formatDate(dateNaissance), 'Depart en carriere', formatDate(dateDebutCarriere));
-    cartesDuo('Salaire brut actuel', formatEuro(salaireActuelBrut)+'/mois', 'Hypothese salariale', hypothese==='constant'?'Constante':'Paliers de carriere');
-    cartesDuo('Depart a la retraite', formatDate(dateRetraite), 'Indice choisi', labelIndice);
+    cartesDuo('Naissance', formatDate(d.dateNaissance), 'Depart en carriere', formatDate(d.dateDebutCarriere));
+    cartesDuo('Salaire brut actuel', formatEuro(d.salaireActuelBrut)+'/mois', 'Hypothese salariale', d.hypothese==='constant'?'Constante':'Paliers de carriere');
+    cartesDuo('Depart a la retraite', formatDate(d.dateRetraite), '', '');
 
     titreSec('VOTRE CARRIERE PROJETEE', VERT);
-    cartesDuo('Trimestres valides', proj.trimestresTotal + ' / ' + resPension.TR, 'SAM (25 meilleures annees)', formatEuro(proj.sam)+'/an');
+    cartesDuo('Trimestres valides', d.proj.trimestresTotal + ' / ' + d.resPension.TR, 'SAM (25 meilleures annees)', formatEuro(d.proj.sam)+'/an');
 
     titreSec('PENSION A LA RETRAITE', VIOLET);
-    if(resPension.typeCoef==='decote') ligneTexte('Decote : taux de ' + resPension.taux.toFixed(2) + '% (au lieu de 50%) - ' + trimManquants + ' trimestre(s) manquant(s).');
-    else if(resPension.typeCoef==='surcote') ligneTexte('Surcote acquise : pension de base majoree de ' + resPension.majSurcote.toFixed(2) + '%.');
+    if(d.resPension.typeCoef==='decote') ligneTexte('Decote : taux de ' + d.resPension.taux.toFixed(2) + '% (au lieu de 50%) - ' + d.trimManquants + ' trimestre(s) manquant(s).');
+    else if(d.resPension.typeCoef==='surcote') ligneTexte('Surcote acquise : pension de base majoree de ' + d.resPension.majSurcote.toFixed(2) + '%.');
     else ligneTexte('Taux plein (50%) atteint.');
-    cartesDuo('Pension de base', formatEuro(resPension.pensionMensuelle)+'/mois', 'Pension complementaire (Agirc-Arrco)', formatEuro(pensionArrcoMensuelle)+'/mois');
-    banniere('PENSION TOTALE MENSUELLE A LA RETRAITE', formatEuro(pensionTotaleMensuelle), 'En euros constants, brut avant impot', BLEU);
+    cartesDuo('Pension de base', formatEuro(d.resPension.pensionMensuelle)+'/mois', 'Pension complementaire (Agirc-Arrco)', formatEuro(d.pensionArrcoMensuelle)+'/mois');
+    banniere('PENSION TOTALE MENSUELLE A LA RETRAITE', formatEuro(d.pensionTotaleMensuelle), 'En euros constants, brut avant impot', BLEU);
+
+    pied();
+    doc.save('simulateur-capitalisation-retraite-'+new Date().toISOString().slice(0,10)+'.pdf');
+  }
+
+  function exporterPDFEpargne(){
+    if(!window.jspdf){ alert('Le module PDF est encore en cours de chargement, réessayez dans quelques secondes.'); return; }
+    const d = preparerDonneesPDF();
+    if(!d) return;
+    const { doc, entete, pied, titreSec, cartesDuo, banniere, ligneTexte, tableauSimple } = creerConstructeurPDF();
+    const BLEU=[30,64,175], VERT=[21,128,61], VIOLET=[109,40,217];
+
+    entete('Comparateur epargne - Salarie du regime general, debut de carriere');
 
     titreSec('COMPARATEUR EPARGNE - 100% SUR CHAQUE ENVELOPPE', VERT);
-    ligneTexte(formatEuro(epargneMensuelle) + '/mois epargnes pendant ' + (dureeMois/12).toFixed(0) + ' ans sur ' + labelIndice + '.');
+    ligneTexte(formatEuro(d.epargneMensuelle) + '/mois epargnes pendant ' + (d.dureeMois/12).toFixed(0) + ' ans sur ' + d.labelIndice + '.');
     tableauSimple(['Enveloppe','Verse','Capital brut','Net'], [
-      ['CTO', formatEuro(rCTO.totalVerse), formatEuro(rCTO.capitalBrut), formatEuro(netCTO)],
-      ['PEA' + (meilleur.n==='PEA'?' (meilleur)':''), formatEuro(rPEA.totalVerse), formatEuro(rPEA.capitalBrut), formatEuro(netPEA)],
-      ['PER', formatEuro(rPER.totalVerse), formatEuro(rPER.capitalBrut), formatEuro(netPER)]
+      ['CTO', formatEuro(d.rCTO.totalVerse), formatEuro(d.rCTO.capitalBrut), formatEuro(d.netCTO)],
+      ['PEA' + (d.meilleur.n==='PEA'?' (meilleur)':''), formatEuro(d.rPEA.totalVerse), formatEuro(d.rPEA.capitalBrut), formatEuro(d.netPEA)],
+      ['PER', formatEuro(d.rPER.totalVerse), formatEuro(d.rPER.capitalBrut), formatEuro(d.netPER)]
     ]);
 
-    titreSec('CE QUE CA CHANGE, CONCRETEMENT', VIOLET);
-    cartesDuo('Pension seule', formatEuro(pensionTotaleMensuelle)+'/mois', '+ Epargne (regle des 4%)', '+'+formatEuro(revenu4pct)+'/mois');
-    banniere('REVENU TOTAL MENSUEL ESTIME A LA RETRAITE', formatEuro(pensionTotaleMensuelle+revenu4pct), 'Pension + epargne (retrait de 4%/an du capital net, meilleure enveloppe: '+meilleur.n+')', VERT);
+    titreSec('ET SI ON REINVESTIT L ECONOMIE D IMPOT DU PER ?', VIOLET);
+    ligneTexte('Chaque versement PER fait economiser ' + formatEuro(d.economieImpotMensuelle) + '/mois d\'impot (TMI ' + (d.tmi*100).toFixed(0) + '%), reinvesti sur un PEA separe.');
+    tableauSimple(['', 'Net'], [
+      ['PER seul', formatEuro(d.netPER)],
+      ['+ Economie d\'impot reinvestie en PEA', formatEuro(d.netEconomiePEA)],
+      ['Total PER + economie reinvestie', formatEuro(d.netPERCombine)]
+    ]);
 
-    checkY(20);
-    doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.line(lm,y,rm,y);y+=5;
-    ligneTexte('Outil educatif NON OFFICIEL. Projections en euros constants (pouvoir d\'achat d\'aujourd\'hui), hypotheses de rendement reel qui ne garantissent en rien les performances futures. Pour votre estimation retraite officielle : info-retraite.fr. Developpe benevolement par J34NMY avec l\'assistance de Claude (Anthropic).');
+    titreSec('CE QUE CA CHANGE, CONCRETEMENT', VERT);
+    cartesDuo('Pension seule', formatEuro(d.pensionTotaleMensuelle)+'/mois', '+ Epargne (regle des 4%)', '+'+formatEuro(d.revenu4pct)+'/mois');
+    banniere('REVENU TOTAL MENSUEL ESTIME A LA RETRAITE', formatEuro(d.pensionTotaleMensuelle+d.revenu4pct), 'Pension + epargne (retrait de 4%/an du capital net, meilleure enveloppe: '+d.meilleur.n+')', VERT);
 
-    doc.save('simulateur-retraite-capitalisation-'+new Date().toISOString().slice(0,10)+'.pdf');
+    const scenarioTxt = (document.getElementById('scenarioMontants').value || '').trim();
+    if(scenarioTxt){
+      const montants = scenarioTxt.split(',').map(s=>parseFloat(s.trim())).filter(m=>!isNaN(m) && m>=0);
+      if(montants.length > 0){
+        titreSec('COMPARAISON DE PLUSIEURS MONTANTS D EPARGNE', BLEU);
+        function projeterEnv(montantMensuel, tauxAnnuel){
+          const tauxMensuel = Math.pow(1+tauxAnnuel, 1/12) - 1;
+          let capital = 0;
+          for(let m=0; m<d.dureeMois; m++) capital = capital*(1+tauxMensuel) + montantMensuel;
+          const totalVerse = montantMensuel * d.dureeMois;
+          return { capitalBrut: capital, totalVerse, gainBrut: capital-totalVerse };
+        }
+        const rows = montants.map(m=>{
+          const rC = projeterEnv(m, d.rendementAnnuel), rP = projeterEnv(m, d.rendementAnnuel), rR = projeterEnv(m, Math.max(0, d.rendementAnnuel - FRAIS_GESTION_PER));
+          const nC = rC.capitalBrut-rC.gainBrut*0.314, nP = rP.capitalBrut-rP.gainBrut*0.186, nR = rR.capitalBrut-(rR.totalVerse*d.tmi+rR.gainBrut*0.314);
+          const best=[{n:'CTO',v:nC},{n:'PEA',v:nP},{n:'PER',v:nR}].reduce((a,b)=>b.v>a.v?b:a);
+          return [formatEuro(m)+'/mois', formatEuro(m*d.dureeMois), best.n, formatEuro(best.v)];
+        });
+        tableauSimple(['Epargne mensuelle','Verse','Meilleure enveloppe','Net'], rows);
+      }
+    }
+
+    pied();
+    doc.save('simulateur-capitalisation-epargne-'+new Date().toISOString().slice(0,10)+'.pdf');
   }
 
   function calculerEpargne(pensionTotaleMensuelle, dureeCarriereAns, dateAujourdhui, dateRetraite){
