@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur Retraite par Capitalisation - Salarié du privé, début de carrière</title>
+<style>
+  :root{
+    --bleu:#1e40af; --bleu-clair:#eff6ff; --vert:#15803d; --vert-clair:#f0fdf4;
+    --or:#b45309; --or-clair:#fff7ed; --rouge:#dc2626; --violet:#6d28d9; --violet-clair:#f5f3ff;
+    --gris-txt:#6b7280; --gris-bord:#e5e7eb; --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:1200px;margin:0 auto;padding:20px;background:#f8fafc;color:#0f172a;}
+  h1{text-align:center;font-size:1.6rem;margin-bottom:4px;}
+  h2{font-size:1rem;font-weight:normal;text-align:center;color:var(--or);margin-top:0;}
+  h3{color:var(--bleu);font-size:1rem;border-bottom:1px solid var(--gris-bord);padding-bottom:6px;margin-top:0;}
+  h4{margin:10px 0 6px;font-size:.92rem;}
+  label{display:block;margin-top:12px;margin-bottom:4px;font-weight:500;font-size:.88rem;}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--gris-bord);border-radius:6px;font-size:.92rem;}
+  small{display:block;color:var(--gris-txt);font-size:.76rem;margin-top:2px;}
+  .row{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start;}
+  .row2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;align-items:start;}
+  .col{background:#fff;border:1px solid var(--gris-bord);border-radius:var(--radius);padding:16px;}
+  .banniere{margin:12px auto 20px;max-width:900px;padding:12px 16px;background:#f8fafc;border:1px solid var(--gris-bord);border-radius:6px;font-size:.82rem;color:#475569;text-align:center;}
+  .disclaimer-top{margin:16px 0;padding:12px;background:var(--or-clair);border-left:4px solid var(--or);border-radius:6px;text-align:center;font-size:.86rem;}
+  .btn{padding:10px 18px;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:.9rem;}
+  .primary{background:var(--bleu);color:#fff;}
+  .primary:hover{background:#1e3a8a;}
+  .secondary{background:#e5e7eb;color:#0f172a;}
+  .secondary:hover{background:#d1d5db;}
+  .actions{text-align:center;margin:24px 0;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .result-section{background:#fff;border:1px solid var(--gris-bord);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  .warn{background:#fff7ed;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:6px;font-size:.86rem;margin-bottom:14px;}
+  .info{background:var(--bleu-clair);border-left:3px solid var(--bleu);padding:10px 14px;border-radius:6px;font-size:.86rem;margin-bottom:14px;}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;}
+  th,td{padding:8px;border:1px solid var(--gris-bord);text-align:left;}
+  th{background:var(--bleu);color:#fff;}
+  footer{text-align:center;font-size:.78rem;color:var(--gris-txt);margin-top:30px;border-top:1px solid var(--gris-bord);padding-top:14px;}
+  .tabs-nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--gris-bord);margin-bottom:20px;}
+  .tab-button{padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.9rem;font-weight:500;color:var(--gris-txt);border-bottom:3px solid transparent;}
+  .tab-button.active{color:var(--bleu);border-bottom-color:var(--bleu);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  .radio-group{display:flex;gap:14px;margin-top:6px;}
+  .radio-group label{display:flex;align-items:center;gap:5px;font-weight:400;margin-top:0;}
+  .radio-group input{width:auto;}
+  @media (max-width:900px){.row,.row2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+  <h1>Simulateur de Retraite &ndash; Épargne par Capitalisation</h1>
+  <h2>Salarié du privé, début de carrière &ndash; Pourquoi épargner tôt change tout</h2>
+
+  <div class="banniere">
+    La retraite par répartition n'offre <strong>aucun choix individuel</strong> : vous cotisez, l'État redistribue selon des règles collectives qui peuvent évoluer. L'épargne par <strong>capitalisation</strong> (CTO, PEA, PER) est un complément que vous seul contrôlez &mdash; et démarrer tôt change radicalement le résultat, grâce aux intérêts composés. Ce simulateur compare les deux pour un salarié du <strong>régime général</strong> en début de carrière.
+  </div>
+
+  <div class="disclaimer-top">
+    &#9888;&#65039; <strong>Outil éducatif NON OFFICIEL.</strong> Toutes les projections sont en <strong>euros constants</strong> (pouvoir d'achat d'aujourd'hui) sur la base d'hypothèses de rendement <strong>réel</strong> (net d'inflation), qui ne garantissent en rien les performances futures. Pour votre estimation retraite officielle : <a href="https://www.info-retraite.fr" target="_blank">info-retraite.fr</a>.
+  </div>
+
+  <div style="margin:16px 0;padding:16px 18px;background:#fff7ed;border:2px solid #f59e0b;border-radius:8px;">
+    <p style="font-weight:700;color:#92400e;margin-bottom:6px;">&#128737;&#65039; Avant d'investir : constituez d'abord une épargne de précaution</p>
+    <p style="font-size:.86rem;color:#7c2d12;margin:0;">L'avis unanime des conseillers financiers : <strong>3 à 6 mois de vos dépenses courantes</strong> (pas de vos revenus), sur un support 100% liquide et sans risque (Livret A, LDDS) &mdash; 6 à 12 mois si vos revenus sont irréguliers (indépendant). Cette réserve sert à absorber un imprévu (panne, perte d'emploi, santé) <strong>sans jamais avoir à revendre vos placements CTO/PEA/PER au mauvais moment</strong>. Elle se construit <em>avant</em> l'épargne de capitalisation simulée ci-dessous, pas en parallèle ni après.</p>
+  </div>
+
+  <div class="tabs-nav">
+    <button class="tab-button active" onclick="switchTab('parametres')">Paramètres</button>
+    <button class="tab-button" onclick="switchTab('resultats')">Projection Retraite</button>
+    <button class="tab-button" onclick="switchTab('epargne')">Comparateur Épargne</button>
+    <button class="tab-button" onclick="switchTab('sources')">Sources</button>
+  </div>
+
+  <div id="tab-parametres" class="tab-content active">
+    <div class="row">
+      <div class="col">
+        <h3>Identité</h3>
+        <label for="dateNaissance">Date de naissance</label>
+        <input id="dateNaissance" type="date" />
+        <small>Détermine l'âge légal, les trimestres requis et l'âge du taux plein automatique (67 ans).</small>
+
+        <label for="sexe">Sexe</label>
+        <select id="sexe">
+          <option value="H">Homme</option>
+          <option value="F">Femme</option>
+        </select>
+      </div>
+
+      <div class="col">
+        <h3>Carrière</h3>
+        <label for="dateDebutCarriere">Date de début de carrière (ou déjà en cours)</label>
+        <input id="dateDebutCarriere" type="date" />
+        <small>Première validation de trimestres au régime général. <strong>Important :</strong> si cette date est déjà passée, la projection future (carrière et épargne) démarre à partir d'<strong>aujourd'hui</strong>, pas de cette date — on ne peut pas épargner ni cotiser rétroactivement. Si vous comparez avec un autre simulateur, mettez la date d'aujourd'hui ici pour un résultat comparable.</small>
+
+        <label for="trimestresDejaAcquis">Trimestres déjà validés à ce jour</label>
+        <input id="trimestresDejaAcquis" type="number" min="0" max="220" step="1" value="0" />
+        <small>0 si vous débutez tout juste. Sinon, indiqué sur votre relevé (info-retraite.fr).</small>
+
+        <label for="pointsAgircArrcoDejaAcquis">Points Agirc-Arrco déjà acquis</label>
+        <input id="pointsAgircArrcoDejaAcquis" type="number" min="0" step="10" value="0" />
+
+        <label for="salaireActuelBrut">Salaire brut mensuel actuel</label>
+        <input id="salaireActuelBrut" type="number" min="0" step="50" value="2200" />
+        <small>Base de la projection de carrière. Tous les montants seront en euros constants (pouvoir d'achat d'aujourd'hui).</small>
+      </div>
+
+      <div class="col">
+        <h3>Hypothèse d'évolution salariale</h3>
+        <div class="radio-group">
+          <label><input type="radio" name="hypotheseSalaire" value="constant" checked onchange="toggleHypotheseSalaire()"> Salaire constant</label>
+          <label><input type="radio" name="hypotheseSalaire" value="paliers" onchange="toggleHypotheseSalaire()"> Paliers de carrière</label>
+        </div>
+        <small>"Constant" = hypothèse prudente (aucune progression réelle). "Paliers" = progression réaliste ralentissant avec l'âge.</small>
+
+        <div id="palierDetails" style="display:none;margin-top:10px;">
+          <label for="tauxDebut">Début de carrière (10 premières années) &mdash; %/an</label>
+          <input id="tauxDebut" type="number" step="0.1" value="3.0" />
+          <label for="tauxMilieu">Milieu de carrière (10 années suivantes) &mdash; %/an</label>
+          <input id="tauxMilieu" type="number" step="0.1" value="1.5" />
+          <label for="tauxFin">Fin de carrière (au-delà) &mdash; %/an</label>
+          <input id="tauxFin" type="number" step="0.1" value="0.5" />
+          <small>Ces taux s'entendent au-delà de l'inflation (progression réelle de pouvoir d'achat).</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="row2" style="margin-top:20px;">
+      <div class="col">
+        <h3>Départ à la retraite envisagé</h3>
+        <label for="dateDepartRetraite">Date de départ à la retraite</label>
+        <input id="dateDepartRetraite" type="date" />
+        <small>Par défaut, calculée automatiquement à l'âge légal de votre génération. Modifiable.</small>
+        <button class="btn secondary" style="margin-top:10px;" onclick="calculerDateDepartAuto()">Calculer automatiquement</button>
+      </div>
+
+      <div class="col">
+        <h3>Épargne de capitalisation</h3>
+        <label for="epargneMensuelle">Montant épargné par mois</label>
+        <input id="epargneMensuelle" type="number" min="0" step="10" value="100" />
+
+        <label for="tmiActuel">Tranche marginale d'imposition (TMI) actuelle</label>
+        <select id="tmiActuel">
+          <option value="0">0 %</option>
+          <option value="11" selected>11 %</option>
+          <option value="30">30 %</option>
+          <option value="41">41 %</option>
+          <option value="45">45 %</option>
+        </select>
+        <small>Sert à calculer l'économie d'impôt du PER à l'entrée, et une hypothèse de fiscalité à la sortie.</small>
+
+        <label for="indiceChoisi">Indice / ETF choisi (CTO, PEA et PER)</label>
+        <select id="indiceChoisi">
+          <option value="msciworld" selected>MSCI World &mdash; iShares MSCI World Swap PEA (WPEA)</option>
+          <option value="sp500">S&amp;P 500 &mdash; BNP Paribas Easy S&amp;P 500 (ESE)</option>
+          <option value="emergents">MSCI Emerging Markets &mdash; Amundi PEA Emergent ESG (PAEEM)</option>
+          <option value="acwi">MSCI ACWI (monde entier) &mdash; Amundi PEA Global (GPEA)</option>
+        </select>
+        <small>Rendements réels (nets d'inflation) moyens long terme &mdash; voir l'onglet Sources pour le détail par indice, et des exemples d'ETF réels (CTO et PEA) pour chacun.</small>
+
+        <small>Le comparateur (onglet suivant) montrera 100% investi sur chaque enveloppe séparément, pour comparer directement.</small>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" onclick="calculer()">Calculer ma projection</button>
+      <button class="btn secondary" onclick="chargerDefaut()">Exemple de valeurs</button>
+    </div>
+  </div>
+
+  <div id="tab-resultats" class="tab-content">
+    <div id="resultatRetraite"><div class="info">Renseignez l'onglet Paramètres puis cliquez sur "Calculer ma projection".</div></div>
+  </div>
+
+  <div id="tab-epargne" class="tab-content">
+    <div id="resultatEpargne"><div class="info">Renseignez l'onglet Paramètres puis cliquez sur "Calculer ma projection".</div></div>
+  </div>
+
+  <div id="tab-sources" class="tab-content">
+    <div class="result-section">
+      <h3>Hypothèses de rendement réel (net d'inflation), par indice</h3>
+      <table>
+        <thead><tr><th>Indice</th><th>Rendement réel retenu</th><th>ETF de référence (éligible PEA et CTO)</th><th>ISIN</th><th>Frais (TER)</th></tr></thead>
+        <tbody>
+          <tr><td>MSCI World</td><td>5,5 %</td><td>iShares MSCI World Swap PEA UCITS ETF (WPEA)</td><td>IE0002XZSHO1</td><td>0,25 %/an</td></tr>
+          <tr><td>S&amp;P 500</td><td>7,0 %</td><td>BNP Paribas Easy S&amp;P 500 UCITS ETF (ESE)</td><td>FR0011550185</td><td>0,14 %/an</td></tr>
+          <tr><td>MSCI Emerging Markets</td><td>4,0 %</td><td>Amundi PEA Emergent (MSCI Emerging) ESG Transition (PAEEM)</td><td>FR0013412020</td><td>0,30 %/an</td></tr>
+          <tr><td>MSCI ACWI (monde entier)</td><td>5,3 %</td><td>Amundi PEA Global &mdash; MSCI ACWI (GPEA)</td><td>FR0014017NX3</td><td>0,30 %/an</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:.82rem;color:var(--gris-txt);margin-top:10px;">Hypothèses de rendement volontairement <strong>prudentes</strong> : moyennes de long terme (20-30 ans), pas les performances récentes (souvent gonflées sur 5-10 ans et non reproductibles indéfiniment). Rendements nets de frais de gestion ETF, avant fiscalité. Les performances passées ne préjugent pas des performances futures.</p>
+      <p style="font-size:.82rem;color:var(--gris-txt);margin-top:6px;">Ces ETF utilisent une <strong>réplication synthétique</strong> (via un contrat d'échange de performance encadré par la réglementation UCITS, plafonné à 10% de la valeur du fonds) pour être éligibles au PEA tout en répliquant des indices hors zone euro &mdash; sauf le CAC 40, qui est directement éligible par réplication physique (actions françaises). Un ETF éligible au PEA peut aussi être logé en CTO, sans restriction &mdash; l'inverse n'est pas vrai (un ETF américain à réplication physique, par exemple, n'est pas éligible au PEA). Vérifiez toujours la disponibilité exacte chez votre courtier et les frais courants avant d'investir &mdash; sélection à titre d'exemple parmi les plus liquides et établis du marché, pas une recommandation personnalisée.</p>
+      <p style="font-size:.82rem;color:var(--gris-txt);margin-top:6px;">&#8505;&#65039; Le GPEA (MSCI ACWI) est un produit <strong>très récent</strong> (lancé le 15 juillet 2026) &mdash; premier ETF PEA à combiner marchés développés et émergents en une seule ligne (environ 88% développés / 12% émergents, pondéré par capitalisation). Son historique de performance et sa liquidité sont donc encore limités comparé aux autres ETF de cette liste, malgré le soutien d'un émetteur établi (Amundi).</p>
+    </div>
+
+    <div class="result-section">
+      <h3>Fiscalité 2026 appliquée</h3>
+      <table>
+        <thead><tr><th>Enveloppe</th><th>Fiscalité</th></tr></thead>
+        <tbody>
+          <tr><td>CTO (Compte-Titres Ordinaire)</td><td>Flat tax (PFU) de <strong>31,4 %</strong> sur les gains à la sortie (12,8 % IR + 18,6 % prélèvements sociaux)</td></tr>
+          <tr><td>PEA (&gt; 5 ans)</td><td>Exonéré d'impôt sur le revenu &mdash; seuls les <strong>18,6 %</strong> de prélèvements sociaux s'appliquent sur les gains</td></tr>
+          <tr><td>PER</td><td>Versements déductibles du revenu imposable à l'entrée (économie d'impôt à votre TMI). À la sortie en capital : la part correspondant aux versements est taxée au barème IR, la plus-value au PFU de 31,4 %. Frais de gestion UC typiques de 0,5 à 0,75 %/an en plus, non présents sur CTO/PEA.</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:.82rem;color:var(--gris-txt);margin-top:10px;">Taux en vigueur depuis le 1<sup>er</sup> janvier 2026 (LFSS 2026) &mdash; la CSG a augmenté de 1,4 point, portant les prélèvements sociaux de 17,2 % à 18,6 % sur la plupart des revenus du capital, y compris le PER.</p>
+    </div>
+
+    <div class="result-section">
+      <h3>Sources &amp; références réglementaires</h3>
+      <table>
+        <thead><tr><th>Texte</th><th>Objet</th></tr></thead>
+        <tbody>
+          <tr><td>Code de la sécurité sociale &ndash; Art. L351-1, L161-17-2, L161-17-3, L351-8</td><td>Calcul de la pension de base, âge légal, durée d'assurance, âge du taux plein automatique</td></tr>
+          <tr><td>Circulaire Cnav 2026-07 du 05/03/2026</td><td>Barème détaillé âge légal / trimestres requis / âge du taux plein par génération</td></tr>
+          <tr><td>Accord national interprofessionnel Agirc-Arrco du 17/11/2017 (modifié)</td><td>Régime de retraite complémentaire par points</td></tr>
+          <tr><td>Circulaire Agirc-Arrco 2025-15-DT du 23/10/2025</td><td>Valeur de service du point (1,4386 €) et taux contractuels 2026</td></tr>
+          <tr><td>Loi n°2025-1403 du 30/12/2025 (LFSS 2026)</td><td>Hausse de la CSG portant le PFU à 31,4 % et les prélèvements sociaux PEA/PER à 18,6 %</td></tr>
+          <tr><td>Art. 150-0 A et 200 A du Code général des impôts</td><td>Prélèvement forfaitaire unique (flat tax) sur les plus-values mobilières</td></tr>
+          <tr><td>Art. L221-30 et L221-31 du Code monétaire et financier</td><td>Fonctionnement du PEA, éligibilité des titres et ETF</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:.8rem;color:var(--gris-txt);margin-top:8px;">La recommandation d'épargne de précaution (3-6 mois de dépenses avant d'investir) reflète un consensus large chez les conseillers en gestion de patrimoine et organismes d'éducation financière, pas un texte réglementaire unique.</p>
+    </div>
+  </div>
+
+<footer>
+  <p><strong>Simulateur Retraite par Capitalisation &ndash; V01</strong> &mdash; Outil gratuit et pédagogique NON OFFICIEL &mdash; Développé bénévolement par J34NMY avec l'assistance de Claude (Anthropic)</p>
+  <p>Aucune donnée saisie n'est transmise &mdash; calculs effectués localement dans votre navigateur.</p>
+  <p>Pour votre estimation officielle : <a href="https://www.info-retraite.fr" target="_blank">info-retraite.fr</a></p>
+  <p style="margin-top:8px;">Cet outil vous a été utile ? &#128172; <a href="https://docs.google.com/forms/d/e/1FAIpQLSc5FOi5yw2Q5JJ-HZIYRVp9fbYk_D5Q1k1-Lo7Gh06Xk_peBw/viewform" target="_blank">Donner mon avis</a> &middot; &#9749; <a href="https://ko-fi.com/j34nmy" target="_blank">Soutenir le projet</a></p>
+</footer>
+
+<script>
+  function switchTab(tabName){
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-button').forEach(b=>b.classList.remove('active'));
+    document.getElementById('tab-'+tabName).classList.add('active');
+    document.querySelector('[onclick="switchTab(\''+tabName+'\')"]').classList.add('active');
+  }
+
+  function toggleHypotheseSalaire(){
+    const val = document.querySelector('input[name="hypotheseSalaire"]:checked').value;
+    document.getElementById('palierDetails').style.display = (val==='paliers') ? 'block' : 'none';
+  }
+
+  // ============================================
+  // BAREME OFFICIEL PAR GENERATION (identique aux autres simulateurs regime general, verifie)
+  // ============================================
+  const baremeGenerations = [
+    { debut:'1953-01-01', fin:'1953-12-31', ageLegalAns:61, ageLegalMois:2,  trimestresRequis:165, ageTauxPlein:66.17 },
+    { debut:'1954-01-01', fin:'1954-12-31', ageLegalAns:61, ageLegalMois:7,  trimestresRequis:165, ageTauxPlein:66.58 },
+    { debut:'1955-01-01', fin:'1957-12-31', ageLegalAns:62, ageLegalMois:0,  trimestresRequis:166, ageTauxPlein:67 },
+    { debut:'1958-01-01', fin:'1960-12-31', ageLegalAns:62, ageLegalMois:0,  trimestresRequis:167, ageTauxPlein:67 },
+    { debut:'1961-01-01', fin:'1961-08-31', ageLegalAns:62, ageLegalMois:0,  trimestresRequis:168, ageTauxPlein:67 },
+    { debut:'1961-09-01', fin:'1961-12-31', ageLegalAns:62, ageLegalMois:3,  trimestresRequis:169, ageTauxPlein:67 },
+    { debut:'1962-01-01', fin:'1962-12-31', ageLegalAns:62, ageLegalMois:6,  trimestresRequis:169, ageTauxPlein:67 },
+    { debut:'1963-01-01', fin:'1963-12-31', ageLegalAns:62, ageLegalMois:9,  trimestresRequis:170, ageTauxPlein:67 },
+    { debut:'1964-01-01', fin:'1964-12-31', ageLegalAns:62, ageLegalMois:9,  trimestresRequis:170, ageTauxPlein:67 },
+    { debut:'1965-01-01', fin:'1965-03-31', ageLegalAns:62, ageLegalMois:9,  trimestresRequis:170, ageTauxPlein:67 },
+    { debut:'1965-04-01', fin:'1965-12-31', ageLegalAns:63, ageLegalMois:0,  trimestresRequis:171, ageTauxPlein:67 },
+    { debut:'1966-01-01', fin:'1966-12-31', ageLegalAns:63, ageLegalMois:3,  trimestresRequis:172, ageTauxPlein:67 },
+    { debut:'1967-01-01', fin:'1967-12-31', ageLegalAns:63, ageLegalMois:6,  trimestresRequis:172, ageTauxPlein:67 },
+    { debut:'1968-01-01', fin:'1968-12-31', ageLegalAns:63, ageLegalMois:9,  trimestresRequis:172, ageTauxPlein:67 },
+    { debut:'1969-01-01', fin:'2100-12-31', ageLegalAns:64, ageLegalMois:0,  trimestresRequis:172, ageTauxPlein:67 }
+  ];
+
+  const PASS_2026 = 48060;
+  const VALEUR_SERVICE_POINT_ARRCO = 1.4386;
+  const PRIX_ACHAT_POINT_ARRCO = 20.1877;
+  const TAUX_CONTRACTUEL_T1 = 0.0620;
+  const TAUX_CONTRACTUEL_T2 = 0.17;
+
+  const coefficientAnticipationArrco = {
+    0:1.00, 1:0.99, 2:0.98, 3:0.97, 4:0.96, 5:0.95, 6:0.94, 7:0.93, 8:0.92, 9:0.91, 10:0.90,
+    11:0.89, 12:0.88, 13:0.8675, 14:0.855, 15:0.8425, 16:0.83, 17:0.8175, 18:0.805, 19:0.7925, 20:0.78
+  };
+  function getCoefficientAnticipationArrco(trimestresManquants){
+    const tm = Math.max(0, Math.min(20, Math.round(trimestresManquants)));
+    return coefficientAnticipationArrco[tm];
+  }
+
+  // Rendements REELS annuels moyens (nets d'inflation), par indice
+  const RENDEMENTS_INDICES = {
+    msciworld: 0.055, sp500: 0.070, emergents: 0.040, acwi: 0.053
+  };
+  const LABELS_INDICES = {
+    msciworld:'MSCI World (iShares MSCI World Swap PEA, WPEA)',
+    sp500:'S&P 500 (BNP Paribas Easy S&P 500, ESE)', emergents:'MSCI Emerging Markets (Amundi PEA Emergent ESG, PAEEM)',
+    acwi:'MSCI ACWI, monde entier (Amundi PEA Global, GPEA)'
+  };
+  const FRAIS_GESTION_PER = 0.006; // 0.6%/an, typique gestion libre 100% ETF en PER
+
+  function trouverBareme(dateNaissance){
+    const dnStr = dateNaissance.toISOString().slice(0,10);
+    for(const b of baremeGenerations){
+      if(dnStr >= b.debut && dnStr <= b.fin) return b;
+    }
+    return { ageLegalAns:64, ageLegalMois:0, trimestresRequis:172, ageTauxPlein:67 };
+  }
+  function ajouterMois(date, mois){
+    const d = new Date(date);
+    d.setMonth(d.getMonth() + mois);
+    return d;
+  }
+  function moisEntre(d1, d2){
+    return (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth()) - (d2.getDate()<d1.getDate()?1:0);
+  }
+  function formatEuro(v){
+    return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v||0);
+  }
+  function formatDate(d){
+    return d instanceof Date && !isNaN(d) ? d.toLocaleDateString('fr-FR') : '-';
+  }
+
+  function chargerDefaut(){
+    document.getElementById('dateNaissance').value = '2002-05-14';
+    document.getElementById('sexe').value = 'H';
+    document.getElementById('dateDebutCarriere').value = '2024-09-01';
+    document.getElementById('trimestresDejaAcquis').value = '8';
+    document.getElementById('pointsAgircArrcoDejaAcquis').value = '280';
+    document.getElementById('salaireActuelBrut').value = '2200';
+    document.querySelector('input[name="hypotheseSalaire"][value="paliers"]').checked = true;
+    toggleHypotheseSalaire();
+    document.getElementById('tauxDebut').value = '3.0';
+    document.getElementById('tauxMilieu').value = '1.5';
+    document.getElementById('tauxFin').value = '0.5';
+    document.getElementById('epargneMensuelle').value = '100';
+    document.getElementById('tmiActuel').value = '11';
+    document.getElementById('indiceChoisi').value = 'msciworld';
+    calculerDateDepartAuto();
+  }
+
+  function calculerDateDepartAuto(){
+    const dnVal = document.getElementById('dateNaissance').value;
+    if(!dnVal) return;
+    const dateNaissance = new Date(dnVal);
+    const bareme = trouverBareme(dateNaissance);
+    const dateAgeLegal = ajouterMois(dateNaissance, bareme.ageLegalAns*12 + bareme.ageLegalMois);
+    document.getElementById('dateDepartRetraite').value = dateAgeLegal.toISOString().slice(0,10);
+  }
+
+  // ============================================
+  // PROJECTION DE CARRIERE ANNEE PAR ANNEE (en euros constants)
+  // ============================================
+  function projeterCarriere(dateNaissance, dateDebutCarriere, dateReference, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrutMensuel, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite){
+    const anneeDebut = dateDebutCarriere.getFullYear();
+    const anneeRetraite = dateRetraite.getFullYear();
+    const salairesAnnuels = [];
+    let pointsTotal = pointsDejaAcquis;
+    let trimestresTotal = trimestresDejaAcquis;
+    let salaireMensuelCourant = salaireActuelBrutMensuel;
+
+    // Si la date de reference (aujourd'hui) est apres le debut de carriere, on part du salaire ACTUEL
+    // et on projette uniquement les annees FUTURES (jusqu'a la retraite). Les trimestres/points deja
+    // acquis representent le passe, non recalcule ici.
+    const anneeDepart = Math.max(anneeDebut, dateReference.getFullYear());
+
+    for(let annee = anneeDepart; annee < anneeRetraite; annee++){
+      const anneesDepuisDebut = annee - anneeDebut;
+      let tauxCroissance;
+      if(hypothese === 'constant'){
+        tauxCroissance = 0;
+      } else {
+        if(anneesDepuisDebut < 10) tauxCroissance = tauxDebut;
+        else if(anneesDepuisDebut < 20) tauxCroissance = tauxMilieu;
+        else tauxCroissance = tauxFin;
+      }
+      if(annee > anneeDepart) salaireMensuelCourant *= (1 + tauxCroissance/100);
+
+      const salaireAnnuel = salaireMensuelCourant * 12;
+      salairesAnnuels.push(Math.min(salaireAnnuel, PASS_2026 * 3)); // plafond de securite, tres large
+
+      // Trimestres : 4/an (hypothese realiste pour un salaire a temps plein continu)
+      trimestresTotal += 4;
+
+      // Points Agirc-Arrco : tranche 1 (jusqu'au PASS) + tranche 2 (au-dela)
+      const t1 = Math.min(salaireAnnuel, PASS_2026);
+      const t2 = Math.max(0, salaireAnnuel - PASS_2026);
+      pointsTotal += (t1 * TAUX_CONTRACTUEL_T1 + t2 * TAUX_CONTRACTUEL_T2) / PRIX_ACHAT_POINT_ARRCO;
+    }
+
+    // SAM : moyenne des 25 meilleures annees de salaire (plafonne au PASS pour le regime de base),
+    // ou de toutes les annees si la carriere en compte moins de 25
+    const salairesPlafonnesPASS = salairesAnnuels.map(s => Math.min(s, PASS_2026));
+    const salairesTries = [...salairesPlafonnesPASS].sort((a,b)=>b-a);
+    const nbAnneesRetenues = Math.min(25, salairesTries.length);
+    const sam = nbAnneesRetenues > 0 ? salairesTries.slice(0, nbAnneesRetenues).reduce((a,b)=>a+b,0) / nbAnneesRetenues : salaireActuelBrutMensuel*12;
+
+    return { trimestresTotal, pointsTotal, sam, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant };
+  }
+
+  function calculerPensionBase(dateNaissance, dateCalcul, trimestresValides, sam){
+    const bareme = trouverBareme(dateNaissance);
+    const TR = bareme.trimestresRequis;
+    const dateAgeLegal = ajouterMois(dateNaissance, bareme.ageLegalAns*12 + bareme.ageLegalMois);
+    const dateTauxPlein = new Date(dateNaissance);
+    dateTauxPlein.setFullYear(dateTauxPlein.getFullYear() + Math.floor(bareme.ageTauxPlein));
+    if(bareme.ageTauxPlein % 1 !== 0){
+      dateTauxPlein.setMonth(dateTauxPlein.getMonth() + Math.round((bareme.ageTauxPlein%1)*12));
+    }
+    const tauxPleinAuto = dateCalcul >= dateTauxPlein;
+    const trimManquantsPourTauxPlein = Math.max(0, TR - trimestresValides);
+
+    let taux, typeCoef, trimSurcote=0, majSurcote=0, coefSurcoteMontant=1;
+    if(tauxPleinAuto || trimManquantsPourTauxPlein === 0){
+      taux = 50; typeCoef = 'plein';
+      if(trimestresValides > TR && dateCalcul > dateAgeLegal){
+        trimSurcote = trimestresValides - TR;
+        majSurcote = trimSurcote * 1.25;
+        coefSurcoteMontant = 1 + majSurcote/100;
+        typeCoef = 'surcote';
+      }
+    } else {
+      const trimManquantsAge = Math.max(0, Math.ceil(moisEntre(dateCalcul, dateTauxPlein)/3));
+      const trimRetenu = Math.min(trimManquantsPourTauxPlein, trimManquantsAge);
+      taux = Math.max(50 - trimRetenu*0.625, 0);
+      typeCoef = 'decote';
+    }
+
+    const ratioProrata = Math.min(1, trimestresValides / TR);
+    const pensionAnnuelle = sam * (taux/100) * ratioProrata * coefSurcoteMontant;
+
+    return { bareme, TR, taux, typeCoef, majSurcote, ratioProrata, pensionAnnuelle, pensionMensuelle: pensionAnnuelle/12 };
+  }
+
+  function calculer(){
+    const dateNaissance = new Date(document.getElementById('dateNaissance').value);
+    const dateDebutCarriere = new Date(document.getElementById('dateDebutCarriere').value);
+    const dateRetraite = new Date(document.getElementById('dateDepartRetraite').value);
+    const trimestresDejaAcquis = parseInt(document.getElementById('trimestresDejaAcquis').value) || 0;
+    const pointsDejaAcquis = parseFloat(document.getElementById('pointsAgircArrcoDejaAcquis').value) || 0;
+    const salaireActuelBrut = parseFloat(document.getElementById('salaireActuelBrut').value) || 0;
+    const hypothese = document.querySelector('input[name="hypotheseSalaire"]:checked').value;
+    const tauxDebut = parseFloat(document.getElementById('tauxDebut').value) || 0;
+    const tauxMilieu = parseFloat(document.getElementById('tauxMilieu').value) || 0;
+    const tauxFin = parseFloat(document.getElementById('tauxFin').value) || 0;
+
+    if(!dateNaissance || isNaN(dateNaissance) || !dateDebutCarriere || isNaN(dateDebutCarriere) || !dateRetraite || isNaN(dateRetraite)){
+      document.getElementById('resultatRetraite').innerHTML = '<div class="warn"><strong>Merci de renseigner toutes les dates.</strong></div>';
+      switchTab('resultats');
+      return;
+    }
+
+    const dateAujourdhui = new Date();
+    dateAujourdhui.setHours(0,0,0,0);
+    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite);
+
+    const resPension = calculerPensionBase(dateNaissance, dateRetraite, proj.trimestresTotal, proj.sam);
+    const trimManquants = resPension.typeCoef === 'decote' ? Math.max(0, resPension.TR - proj.trimestresTotal) : 0;
+    const coefArrco = getCoefficientAnticipationArrco(trimManquants);
+    const pensionArrcoMensuelle = (proj.pointsTotal * VALEUR_SERVICE_POINT_ARRCO / 12) * coefArrco;
+    const pensionTotaleMensuelle = resPension.pensionMensuelle + pensionArrcoMensuelle;
+
+    const ageDepart = moisEntre(dateNaissance, dateRetraite) / 12;
+    const dureeCarriereAns = moisEntre(dateDebutCarriere, dateRetraite) / 12;
+
+    let html = '<div class="result-section">';
+    html += '<h3>Votre carrière projetée</h3>';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Départ à la retraite</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatDate(dateRetraite) + '</p><p style="font-size:.72rem;color:var(--gris-txt);margin:3px 0 0;">' + ageDepart.toFixed(1) + ' ans, ' + dureeCarriereAns.toFixed(0) + ' ans de carrière</p></div>';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Trimestres validés</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + proj.trimestresTotal + ' / ' + resPension.TR + '</p></div>';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">SAM (25 meilleures années)</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatEuro(proj.sam) + '/an</p></div>';
+    html += '</div></div>';
+
+    if(dateDebutCarriere < dateAujourdhui){
+      const anneesDejaEcoulees = moisEntre(dateDebutCarriere, dateAujourdhui) / 12;
+      html += '<div class="info" style="margin-top:-4px;">&#8505;&#65039; Votre carrière a débuté il y a ' + anneesDejaEcoulees.toFixed(1) + ' an(s). Cette projection calcule le <strong>futur à partir d\'aujourd\'hui</strong> (' + formatDate(dateAujourdhui) + '), pas à partir de votre date de début de carrière &mdash; on ne peut pas cotiser ni épargner rétroactivement pour des années déjà passées. Si vous comparez avec un autre simulateur qui, lui, part du début de carrière, mettez la date d\'aujourd\'hui dans le champ "Date de début de carrière" pour obtenir des durées comparables.</div>';
+    }
+
+    html += '<div class="result-section">';
+    html += '<h3>Pension à la retraite (base + complémentaire)</h3>';
+    if(resPension.typeCoef === 'decote'){
+      html += '<div class="warn">Décote : taux de ' + resPension.taux.toFixed(2) + '% (au lieu de 50%) &mdash; ' + trimManquants + ' trimestre(s) manquant(s).</div>';
+    } else if(resPension.typeCoef === 'surcote'){
+      html += '<div class="info">Surcote acquise : pension de base majorée de ' + resPension.majSurcote.toFixed(2) + '%.</div>';
+    } else {
+      html += '<div class="info">Taux plein (50%) atteint.</div>';
+    }
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:10px 0;">';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:11px;color:var(--gris-txt);margin:0 0 4px;">Pension de base</p><p style="font-size:18px;font-weight:600;margin:0;">' + formatEuro(resPension.pensionMensuelle) + '/mois</p></div>';
+    html += '<div style="background:var(--violet-clair);border-radius:8px;padding:12px;"><p style="font-size:11px;color:var(--violet);margin:0 0 4px;">Pension complémentaire (Agirc-Arrco)</p><p style="font-size:18px;font-weight:600;margin:0;color:var(--violet);">' + formatEuro(pensionArrcoMensuelle) + '/mois</p></div>';
+    html += '</div>';
+    html += '<div style="background:var(--bleu);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">';
+    html += '<div><p style="font-size:12px;color:#bfdbfe;margin:0 0 2px;font-weight:500;">Pension totale mensuelle à la retraite</p><p style="font-size:11px;color:#93c5fd;margin:0;">En euros constants (pouvoir d\'achat d\'aujourd\'hui) &mdash; brut avant impôt</p></div>';
+    html += '<span style="font-size:26px;font-weight:600;color:#fff;">' + formatEuro(pensionTotaleMensuelle) + '</span></div>';
+    html += '</div>';
+
+    html += '<div class="warn"><strong>Rappel :</strong> cette projection repose sur des hypothèses à 30-40 ans (règles de calcul, âge légal, valeur du point) qui peuvent évoluer d\'ici votre départ réel. Elle donne un ordre de grandeur, pas un engagement.</div>';
+
+    document.getElementById('resultatRetraite').innerHTML = html;
+
+    calculerEpargne(pensionTotaleMensuelle, dureeCarriereAns, dateAujourdhui, dateRetraite);
+    switchTab('resultats');
+  }
+
+  function calculerEpargne(pensionTotaleMensuelle, dureeCarriereAns, dateAujourdhui, dateRetraite){
+    const epargneMensuelle = parseFloat(document.getElementById('epargneMensuelle').value) || 0;
+    const tmi = parseFloat(document.getElementById('tmiActuel').value) / 100;
+    const indice = document.getElementById('indiceChoisi').value;
+    const rendementAnnuel = RENDEMENTS_INDICES[indice];
+
+    const dureeMois = Math.max(1, moisEntre(dateAujourdhui, dateRetraite));
+    const dureeAns = dureeMois / 12;
+
+    function projeterEnveloppe(montantMensuel, tauxAnnuel, dureeMois){
+      const tauxMensuel = Math.pow(1+tauxAnnuel, 1/12) - 1;
+      let capital = 0;
+      for(let m=0; m<dureeMois; m++){
+        capital = capital*(1+tauxMensuel) + montantMensuel;
+      }
+      const totalVerse = montantMensuel * dureeMois;
+      const gainBrut = capital - totalVerse;
+      return { capitalBrut: capital, totalVerse, gainBrut };
+    }
+
+    // Scenario 1 : 100% du montant epargne sur CHAQUE enveloppe separement
+    const rCTO = projeterEnveloppe(epargneMensuelle, rendementAnnuel, dureeMois);
+    const rPEA = projeterEnveloppe(epargneMensuelle, rendementAnnuel, dureeMois);
+    const rPER = projeterEnveloppe(epargneMensuelle, Math.max(0, rendementAnnuel - FRAIS_GESTION_PER), dureeMois);
+
+    const impotCTO = rCTO.gainBrut * 0.314;
+    const netCTO = rCTO.capitalBrut - impotCTO;
+
+    const impotPEA = rPEA.gainBrut * 0.186;
+    const netPEA = rPEA.capitalBrut - impotPEA;
+
+    // PER : a la sortie en capital, partie versements taxee au bareme (hypothese : TMI actuel),
+    // partie plus-value taxee au PFU 31.4%
+    const impotSortiePERVersements = rPER.totalVerse * tmi;
+    const impotSortiePERPlusValue = rPER.gainBrut * 0.314;
+    const impotPER = impotSortiePERVersements + impotSortiePERPlusValue;
+    const netPER = rPER.capitalBrut - impotPER;
+
+    const resultats = [
+      { nom:'CTO', ...rCTO, impot:impotCTO, net:netCTO, couleur:'#1e40af' },
+      { nom:'PEA', ...rPEA, impot:impotPEA, net:netPEA, couleur:'#15803d' },
+      { nom:'PER', ...rPER, impot:impotPER, net:netPER, couleur:'#6d28d9' }
+    ];
+    const meilleur = resultats.reduce((a,b)=> b.net>a.net ? b : a);
+
+    let html = '<div class="result-section">';
+    html += '<h3>Comparateur : 100% investi sur chaque enveloppe</h3>';
+    html += '<p style="font-size:.82rem;color:var(--gris-txt);">Indice choisi : <strong>' + LABELS_INDICES[indice] + '</strong> (' + (rendementAnnuel*100).toFixed(1) + '%/an réel) &mdash; ' + formatEuro(epargneMensuelle) + '/mois épargnés pendant ' + dureeAns.toFixed(0) + ' ans, jusqu\'au ' + formatDate(dateRetraite) + '.</p>';
+
+    html += '<table><thead><tr><th>Enveloppe</th><th style="text-align:right;">Versé</th><th style="text-align:right;">Capital brut</th><th style="text-align:right;">Impôt à la sortie</th><th style="text-align:right;">Net</th><th style="text-align:right;">Part perdue en impôt</th></tr></thead><tbody>';
+    resultats.forEach(r=>{
+      const ok = r.nom === meilleur.nom;
+      const partImpot = r.gainBrut>0 ? (r.impot/r.gainBrut*100) : 0;
+      html += '<tr style="' + (ok?'background:#f0fdf4;':'') + '">';
+      html += '<td style="font-weight:' + (ok?'700':'400') + ';color:' + (ok?r.couleur:'inherit') + ';">' + r.nom + (ok?' &larr; meilleur net':'') + '</td>';
+      html += '<td style="text-align:right;">' + formatEuro(r.totalVerse) + '</td>';
+      html += '<td style="text-align:right;">' + formatEuro(r.capitalBrut) + '</td>';
+      html += '<td style="text-align:right;color:var(--rouge);">-' + formatEuro(r.impot) + '</td>';
+      html += '<td style="text-align:right;font-weight:700;">' + formatEuro(r.net) + '</td>';
+      html += '<td style="text-align:right;">' + partImpot.toFixed(1) + '% du gain</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<p style="font-size:.78rem;color:var(--gris-txt);margin-top:8px;">Le PER part avec un désavantage ici (frais de gestion UC + fiscalité de sortie sur les versements), mais ce tableau ne compte pas encore l\'économie d\'impôt qu\'il génère chaque année à l\'entrée &mdash; voir le tableau ci-dessous.</p>';
+    html += '</div>';
+
+    // Scenario 2 : 100% PER, avec l'economie d'impot annuelle reinvestie en PEA
+    const economieImpotAnnuelleMensualisee = epargneMensuelle * tmi; // par mois, si on reinvestit au meme rythme
+    const rPEAeconomie = projeterEnveloppe(economieImpotAnnuelleMensualisee, rendementAnnuel, dureeMois);
+    const gainEconomiePEA = rPEAeconomie.gainBrut;
+    const impotEconomiePEA = gainEconomiePEA * 0.186;
+    const netEconomiePEA = rPEAeconomie.capitalBrut - impotEconomiePEA;
+    const netPERCombine = netPER + netEconomiePEA;
+
+    html += '<div class="result-section">';
+    html += '<h3>Et si on réinvestit l\'économie d\'impôt du PER ?</h3>';
+    html += '<p style="font-size:.82rem;color:var(--gris-txt);">Chaque versement PER de ' + formatEuro(epargneMensuelle) + '/mois fait économiser ' + formatEuro(economieImpotAnnuelleMensualisee) + '/mois d\'impôt (à votre TMI de ' + (tmi*100).toFixed(0) + '%) &mdash; ce montant, s\'il est lui-même épargné chaque mois sur un PEA plutôt que dépensé, fructifie en parallèle.</p>';
+    html += '<table><thead><tr><th></th><th style="text-align:right;">Versé</th><th style="text-align:right;">Capital brut</th><th style="text-align:right;">Impôt à la sortie</th><th style="text-align:right;">Net</th></tr></thead><tbody>';
+    html += '<tr><td>PER seul</td><td style="text-align:right;">' + formatEuro(rPER.totalVerse) + '</td><td style="text-align:right;">' + formatEuro(rPER.capitalBrut) + '</td><td style="text-align:right;color:var(--rouge);">-' + formatEuro(impotPER) + '</td><td style="text-align:right;font-weight:600;">' + formatEuro(netPER) + '</td></tr>';
+    html += '<tr><td>+ Économie d\'impôt réinvestie en PEA</td><td style="text-align:right;">' + formatEuro(rPEAeconomie.totalVerse) + '</td><td style="text-align:right;">' + formatEuro(rPEAeconomie.capitalBrut) + '</td><td style="text-align:right;color:var(--rouge);">-' + formatEuro(impotEconomiePEA) + '</td><td style="text-align:right;font-weight:600;">' + formatEuro(netEconomiePEA) + '</td></tr>';
+    html += '<tr style="background:#f5f3ff;font-weight:700;"><td>Total PER + économie réinvestie</td><td style="text-align:right;">' + formatEuro(rPER.totalVerse+rPEAeconomie.totalVerse) + '</td><td style="text-align:right;">&mdash;</td><td style="text-align:right;">&mdash;</td><td style="text-align:right;color:var(--violet);">' + formatEuro(netPERCombine) + '</td></tr>';
+    html += '</tbody></table>';
+    html += '<p style="font-size:.78rem;color:var(--gris-txt);margin-top:8px;">Comparé au PER seul (' + formatEuro(netPER) + '), réinvestir systématiquement l\'économie d\'impôt ajoute ' + formatEuro(netEconomiePEA) + ' &mdash; soit un total de ' + formatEuro(netPERCombine) + ', ' + (netPERCombine>meilleur.net ? 'ce qui dépasse même le meilleur résultat du tableau ci-dessus (' + meilleur.nom + ')' : 'à comparer aux ' + formatEuro(meilleur.net) + ' du meilleur résultat ci-dessus (' + meilleur.nom + ')') + '. Ceci suppose une discipline d\'épargne réelle de l\'économie d\'impôt, qui n\'est pas automatique.</p>';
+    html += '</div>';
+
+    html += '<div class="result-section">';
+    html += '<h3>Ce que ça change, concrètement</h3>';
+    html += '<p style="font-size:.82rem;color:var(--gris-txt);">Exemple avec le meilleur résultat du premier tableau (' + meilleur.nom + ', ' + formatEuro(meilleur.net) + ' net) :</p>';
+    const revenuMensuelEquivalent4pct = (meilleur.net * 0.04) / 12;
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;">';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:14px;"><p style="font-size:12px;color:var(--gris-txt);margin:0 0 4px;">Pension seule (répartition)</p><p style="font-size:20px;font-weight:600;margin:0;">' + formatEuro(pensionTotaleMensuelle) + '/mois</p></div>';
+    html += '<div style="background:var(--vert-clair);border-radius:8px;padding:14px;"><p style="font-size:12px;color:var(--vert);margin:0 0 4px;">+ Épargne (règle des 4%, indicative)</p><p style="font-size:20px;font-weight:600;margin:0;color:var(--vert);">+' + formatEuro(revenuMensuelEquivalent4pct) + '/mois</p></div>';
+    html += '</div>';
+    html += '<div style="background:var(--vert);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">';
+    html += '<div><p style="font-size:12px;color:#dcfce7;margin:0 0 2px;font-weight:500;">Revenu total mensuel estimé à la retraite</p><p style="font-size:11px;color:#bbf7d0;margin:0;">Pension + épargne (retrait de 4%/an du capital net)</p></div>';
+    html += '<span style="font-size:26px;font-weight:600;color:#fff;">' + formatEuro(pensionTotaleMensuelle + revenuMensuelEquivalent4pct) + '</span></div>';
+    html += '<p style="font-size:.78rem;color:var(--gris-txt);margin-top:10px;">La "règle des 4%" est une convention couramment utilisée (retirer 4% du capital chaque année) pour convertir un capital en revenu régulier sans l\'épuiser trop vite &mdash; ce n\'est pas une garantie, juste un repère.</p>';
+    html += '</div>';
+
+    document.getElementById('resultatEpargne').innerHTML = html;
+  }
+</script>
+</body>
+</html>
