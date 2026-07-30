@@ -47,6 +47,7 @@
   .radio-group input{width:auto;}
   @media (max-width:900px){.row,.row2{grid-template-columns:1fr;}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -152,15 +153,38 @@
         <small>Sert à calculer l'économie d'impôt du PER à l'entrée, et une hypothèse de fiscalité à la sortie.</small>
 
         <label for="indiceChoisi">Indice / ETF choisi (CTO, PEA et PER)</label>
-        <select id="indiceChoisi">
+        <select id="indiceChoisi" onchange="togglePersonnalise()">
           <option value="msciworld" selected>MSCI World &mdash; iShares MSCI World Swap PEA (WPEA)</option>
           <option value="sp500">S&amp;P 500 &mdash; BNP Paribas Easy S&amp;P 500 (ESE)</option>
           <option value="emergents">MSCI Emerging Markets &mdash; Amundi PEA Emergent ESG (PAEEM)</option>
           <option value="acwi">MSCI ACWI (monde entier) &mdash; Amundi PEA Global (GPEA)</option>
+          <option value="personnalise">Personnalisé &mdash; je saisis mon propre rendement et mes frais</option>
         </select>
         <small>Rendements réels (nets d'inflation) moyens long terme &mdash; voir l'onglet Sources pour le détail par indice, et des exemples d'ETF réels (CTO et PEA) pour chacun.</small>
 
+        <div id="personnaliseFields" style="display:none;margin-top:10px;">
+          <label for="rendementPersonnalise">Rendement réel annuel de votre ETF (%/an, net d'inflation)</label>
+          <input id="rendementPersonnalise" type="number" step="0.1" value="5.5" />
+          <label for="fraisPersonnalise" style="margin-top:10px;">Frais annuels de votre ETF, TER (%/an)</label>
+          <input id="fraisPersonnalise" type="number" step="0.01" value="0.25" />
+          <small>Le TER est déjà déduit dans les rendements des indices préréglés &mdash; ici, saisissez le rendement brut de frais de VOTRE ETF, et son TER sera automatiquement soustrait.</small>
+        </div>
+
         <small>Le comparateur (onglet suivant) montrera 100% investi sur chaque enveloppe séparément, pour comparer directement.</small>
+      </div>
+    </div>
+
+    <div class="row2" style="margin-top:20px;">
+      <div class="col">
+        <h3>Comparer plusieurs scénarios (optionnel)</h3>
+        <label for="scenarioMontants">Montants d'épargne mensuelle à comparer (séparés par des virgules)</label>
+        <input id="scenarioMontants" type="text" placeholder="Ex: 50, 100, 200" />
+        <small>Laissez vide pour ne comparer qu'un seul montant (celui saisi ci-dessus). Sinon, les résultats de chaque montant seront affichés côte à côte dans l'onglet Comparateur Épargne.</small>
+      </div>
+      <div class="col">
+        <h3>Export</h3>
+        <p style="font-size:.85rem;color:var(--gris-txt);margin-bottom:10px;">Une fois le calcul lancé, exportez vos résultats en PDF pour les conserver ou les partager.</p>
+        <button class="btn secondary" onclick="exporterResultatsPDF()">&#128196; Exporter en PDF</button>
       </div>
     </div>
 
@@ -244,6 +268,31 @@
   function toggleHypotheseSalaire(){
     const val = document.querySelector('input[name="hypotheseSalaire"]:checked').value;
     document.getElementById('palierDetails').style.display = (val==='paliers') ? 'block' : 'none';
+  }
+
+  function togglePersonnalise(){
+    const val = document.getElementById('indiceChoisi').value;
+    document.getElementById('personnaliseFields').style.display = (val==='personnalise') ? 'block' : 'none';
+  }
+
+  function obtenirRendementIndice(){
+    const indice = document.getElementById('indiceChoisi').value;
+    if(indice === 'personnalise'){
+      const brut = (parseFloat(document.getElementById('rendementPersonnalise').value) || 0) / 100;
+      const frais = (parseFloat(document.getElementById('fraisPersonnalise').value) || 0) / 100;
+      return Math.max(0, brut - frais);
+    }
+    return RENDEMENTS_INDICES[indice];
+  }
+
+  function obtenirLabelIndice(){
+    const indice = document.getElementById('indiceChoisi').value;
+    if(indice === 'personnalise'){
+      const brut = parseFloat(document.getElementById('rendementPersonnalise').value) || 0;
+      const frais = parseFloat(document.getElementById('fraisPersonnalise').value) || 0;
+      return 'ETF personnalisé (' + brut.toFixed(1) + '% brut - ' + frais.toFixed(2) + '% de frais)';
+    }
+    return LABELS_INDICES[indice];
   }
 
   // ============================================
@@ -349,6 +398,7 @@
     const anneeDebut = dateDebutCarriere.getFullYear();
     const anneeRetraite = dateRetraite.getFullYear();
     const salairesAnnuels = [];
+    const historiqueAnnuel = [];
     let pointsTotal = pointsDejaAcquis;
     let trimestresTotal = trimestresDejaAcquis;
     let salaireMensuelCourant = salaireActuelBrutMensuel;
@@ -380,6 +430,8 @@
       const t1 = Math.min(salaireAnnuel, PASS_2026);
       const t2 = Math.max(0, salaireAnnuel - PASS_2026);
       pointsTotal += (t1 * TAUX_CONTRACTUEL_T1 + t2 * TAUX_CONTRACTUEL_T2) / PRIX_ACHAT_POINT_ARRCO;
+
+      historiqueAnnuel.push({ annee, salaireMensuel: salaireMensuelCourant, salaireAnnuel, trimestresCumules: trimestresTotal, pointsCumules: pointsTotal });
     }
 
     // SAM : moyenne des 25 meilleures annees de salaire (plafonne au PASS pour le regime de base),
@@ -389,7 +441,7 @@
     const nbAnneesRetenues = Math.min(25, salairesTries.length);
     const sam = nbAnneesRetenues > 0 ? salairesTries.slice(0, nbAnneesRetenues).reduce((a,b)=>a+b,0) / nbAnneesRetenues : salaireActuelBrutMensuel*12;
 
-    return { trimestresTotal, pointsTotal, sam, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant };
+    return { trimestresTotal, pointsTotal, sam, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant, historiqueAnnuel };
   }
 
   function calculerPensionBase(dateNaissance, dateCalcul, trimestresValides, sam){
@@ -490,17 +542,151 @@
 
     html += '<div class="warn"><strong>Rappel :</strong> cette projection repose sur des hypothèses à 30-40 ans (règles de calcul, âge légal, valeur du point) qui peuvent évoluer d\'ici votre départ réel. Elle donne un ordre de grandeur, pas un engagement.</div>';
 
+    html += '<div class="result-section">';
+    html += '<button onclick="toggleTableauAnnuel()" style="background:none;border:none;color:var(--bleu);font-weight:600;cursor:pointer;font-size:.88rem;padding:0;">&#128202; Voir le détail année par année <span id="chevronAnnuel">&#9660;</span></button>';
+    html += '<div id="tableauAnnuelBody" style="display:none;margin-top:12px;max-height:400px;overflow-y:auto;">';
+    html += '<table><thead><tr><th>Année</th><th style="text-align:right;">Salaire mensuel</th><th style="text-align:right;">Trimestres cumulés</th><th style="text-align:right;">Points Agirc-Arrco cumulés</th></tr></thead><tbody>';
+    proj.historiqueAnnuel.forEach(h=>{
+      html += '<tr><td>' + h.annee + '</td><td style="text-align:right;">' + formatEuro(h.salaireMensuel) + '</td><td style="text-align:right;">' + h.trimestresCumules + '</td><td style="text-align:right;">' + h.pointsCumules.toFixed(0) + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+
     document.getElementById('resultatRetraite').innerHTML = html;
 
     calculerEpargne(pensionTotaleMensuelle, dureeCarriereAns, dateAujourdhui, dateRetraite);
     switchTab('resultats');
   }
 
+  function toggleTableauAnnuel(){
+    const body = document.getElementById('tableauAnnuelBody');
+    const chevron = document.getElementById('chevronAnnuel');
+    const open = body.style.display === 'none';
+    body.style.display = open ? 'block' : 'none';
+    chevron.innerHTML = open ? '&#9650;' : '&#9660;';
+  }
+
+  function exporterResultatsPDF(){
+    if(!window.jspdf){ alert('Le module PDF est encore en cours de chargement, réessayez dans quelques secondes.'); return; }
+    const dateNaissance = new Date(document.getElementById('dateNaissance').value);
+    const dateDebutCarriere = new Date(document.getElementById('dateDebutCarriere').value);
+    const dateRetraite = new Date(document.getElementById('dateDepartRetraite').value);
+    if(!dateNaissance || isNaN(dateNaissance) || !dateRetraite || isNaN(dateRetraite)){
+      alert('Merci de lancer un calcul complet avant d\'exporter en PDF.');
+      return;
+    }
+    const trimestresDejaAcquis = parseInt(document.getElementById('trimestresDejaAcquis').value) || 0;
+    const pointsDejaAcquis = parseFloat(document.getElementById('pointsAgircArrcoDejaAcquis').value) || 0;
+    const salaireActuelBrut = parseFloat(document.getElementById('salaireActuelBrut').value) || 0;
+    const hypothese = document.querySelector('input[name="hypotheseSalaire"]:checked').value;
+    const tauxDebut = parseFloat(document.getElementById('tauxDebut').value) || 0;
+    const tauxMilieu = parseFloat(document.getElementById('tauxMilieu').value) || 0;
+    const tauxFin = parseFloat(document.getElementById('tauxFin').value) || 0;
+    const epargneMensuelle = parseFloat(document.getElementById('epargneMensuelle').value) || 0;
+    const tmi = parseFloat(document.getElementById('tmiActuel').value) / 100;
+    const rendementAnnuel = obtenirRendementIndice();
+    const labelIndice = obtenirLabelIndice();
+
+    const dateAujourdhui = new Date(); dateAujourdhui.setHours(0,0,0,0);
+    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite);
+    const resPension = calculerPensionBase(dateNaissance, dateRetraite, proj.trimestresTotal, proj.sam);
+    const trimManquants = resPension.typeCoef === 'decote' ? Math.max(0, resPension.TR - proj.trimestresTotal) : 0;
+    const coefArrco = getCoefficientAnticipationArrco(trimManquants);
+    const pensionArrcoMensuelle = (proj.pointsTotal * VALEUR_SERVICE_POINT_ARRCO / 12) * coefArrco;
+    const pensionTotaleMensuelle = resPension.pensionMensuelle + pensionArrcoMensuelle;
+
+    const dureeMois = Math.max(1, moisEntre(dateAujourdhui, dateRetraite));
+    function projeterEnv(montantMensuel, tauxAnnuel){
+      const tauxMensuel = Math.pow(1+tauxAnnuel, 1/12) - 1;
+      let capital = 0;
+      for(let m=0; m<dureeMois; m++) capital = capital*(1+tauxMensuel) + montantMensuel;
+      const totalVerse = montantMensuel * dureeMois;
+      return { capitalBrut: capital, totalVerse, gainBrut: capital-totalVerse };
+    }
+    const rCTO = projeterEnv(epargneMensuelle, rendementAnnuel);
+    const rPEA = projeterEnv(epargneMensuelle, rendementAnnuel);
+    const rPER = projeterEnv(epargneMensuelle, Math.max(0, rendementAnnuel - FRAIS_GESTION_PER));
+    const netCTO = rCTO.capitalBrut - rCTO.gainBrut*0.314;
+    const netPEA = rPEA.capitalBrut - rPEA.gainBrut*0.186;
+    const netPER = rPER.capitalBrut - (rPER.totalVerse*tmi + rPER.gainBrut*0.314);
+    const meilleur = [{n:'CTO',v:netCTO},{n:'PEA',v:netPEA},{n:'PER',v:netPER}].reduce((a,b)=>b.v>a.v?b:a);
+    const revenu4pct = meilleur.v*0.04/12;
+
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF();
+    let y=0; const lm=15, rm=195, pw=rm-lm;
+    const BLEU=[30,64,175], VERT=[21,128,61], VIOLET=[109,40,217], GRIS=[249,250,251], GRISD=[100,116,139], NOIR=[15,23,42];
+    function nettoyer(t){return (t||'').replace(/→/g,'->').replace(/−/g,'-').replace(/—/g,'-').replace(/–/g,'-').replace(/·/g,'.').replace(/•/g,'-').replace(/✓/g,'v').replace(/⚠/g,'!').replace(/️/g,'').replace(/€/g,'EUR');}
+    function sautPage(){doc.addPage();y=15;}
+    function checkY(h){if(y+h>278)sautPage();}
+    function titreSec(txt,c){checkY(12);doc.setFillColor(...c);doc.rect(lm-2,y-4,pw+4,10,'F');doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont(undefined,'bold');doc.text(nettoyer(txt),lm,y);doc.setTextColor(...NOIR);y+=9;}
+    function cartesDuo(g1,v1,g2,v2){checkY(18);const w=(pw-4)/2;[[g1,v1,lm],[g2,v2,lm+w+4]].forEach(([g,v,x])=>{doc.setFillColor(...GRIS);doc.rect(x,y,w,16,'F');doc.setFontSize(7.5);doc.setFont(undefined,'normal');doc.setTextColor(...GRISD);doc.text(nettoyer(g),x+3,y+5);doc.setFontSize(10);doc.setFont(undefined,'bold');doc.setTextColor(...NOIR);doc.text(nettoyer(v),x+3,y+12);});y+=20;}
+    function banniere(label,valeur,sousTitre,c){checkY(22);doc.setFillColor(...c);doc.rect(lm-2,y-2,pw+4,20,'F');doc.setFontSize(8);doc.setFont(undefined,'normal');doc.setTextColor(220,230,255);doc.text(nettoyer(label),lm,y+4);if(sousTitre){doc.setFontSize(7);doc.text(nettoyer(sousTitre),lm,y+9);}doc.setFontSize(14);doc.setFont(undefined,'bold');doc.setTextColor(255,255,255);doc.text(nettoyer(valeur),rm-2,y+13,{align:'right'});doc.setTextColor(...NOIR);y+=23;}
+    function ligneTexte(txt){checkY(6);doc.setFontSize(8);doc.setFont(undefined,'normal');doc.setTextColor(...GRISD);doc.splitTextToSize(nettoyer(txt),pw).forEach(l=>{checkY(5);doc.text(l,lm,y);y+=4.2;});doc.setTextColor(...NOIR);y+=2;}
+    function tableauSimple(headers, rows){
+      checkY(8+rows.length*6);
+      const colW = pw/headers.length;
+      doc.setFillColor(...BLEU);doc.rect(lm,y,pw,7,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
+      headers.forEach((h,i)=>doc.text(nettoyer(h),lm+i*colW+2,y+5));
+      y+=7;
+      doc.setTextColor(...NOIR);doc.setFont(undefined,'normal');
+      rows.forEach((r,ri)=>{
+        checkY(6);
+        if(ri%2===1){doc.setFillColor(...GRIS);doc.rect(lm,y,pw,6,'F');}
+        r.forEach((c,i)=>doc.text(nettoyer(String(c)),lm+i*colW+2,y+4.2));
+        y+=6;
+      });
+      y+=3;
+    }
+
+    doc.setFillColor(...BLEU);doc.rect(0,0,210,30,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont(undefined,'bold');
+    doc.text('SIMULATEUR RETRAITE PAR CAPITALISATION', 105, 12, {align:'center'});
+    doc.setFontSize(9);doc.setFont(undefined,'normal');
+    doc.text('Salarie du regime general, debut de carriere', 105, 20, {align:'center'});
+    doc.setFontSize(7.5);
+    doc.text('Document genere le ' + new Date().toLocaleDateString('fr-FR') + '  |  Outil educatif NON OFFICIEL', 105, 27, {align:'center'});
+    y=38;
+
+    titreSec('PARAMETRES DE SIMULATION', BLEU);
+    cartesDuo('Naissance', formatDate(dateNaissance), 'Depart en carriere', formatDate(dateDebutCarriere));
+    cartesDuo('Salaire brut actuel', formatEuro(salaireActuelBrut)+'/mois', 'Hypothese salariale', hypothese==='constant'?'Constante':'Paliers de carriere');
+    cartesDuo('Depart a la retraite', formatDate(dateRetraite), 'Indice choisi', labelIndice);
+
+    titreSec('VOTRE CARRIERE PROJETEE', VERT);
+    cartesDuo('Trimestres valides', proj.trimestresTotal + ' / ' + resPension.TR, 'SAM (25 meilleures annees)', formatEuro(proj.sam)+'/an');
+
+    titreSec('PENSION A LA RETRAITE', VIOLET);
+    if(resPension.typeCoef==='decote') ligneTexte('Decote : taux de ' + resPension.taux.toFixed(2) + '% (au lieu de 50%) - ' + trimManquants + ' trimestre(s) manquant(s).');
+    else if(resPension.typeCoef==='surcote') ligneTexte('Surcote acquise : pension de base majoree de ' + resPension.majSurcote.toFixed(2) + '%.');
+    else ligneTexte('Taux plein (50%) atteint.');
+    cartesDuo('Pension de base', formatEuro(resPension.pensionMensuelle)+'/mois', 'Pension complementaire (Agirc-Arrco)', formatEuro(pensionArrcoMensuelle)+'/mois');
+    banniere('PENSION TOTALE MENSUELLE A LA RETRAITE', formatEuro(pensionTotaleMensuelle), 'En euros constants, brut avant impot', BLEU);
+
+    titreSec('COMPARATEUR EPARGNE - 100% SUR CHAQUE ENVELOPPE', VERT);
+    ligneTexte(formatEuro(epargneMensuelle) + '/mois epargnes pendant ' + (dureeMois/12).toFixed(0) + ' ans sur ' + labelIndice + '.');
+    tableauSimple(['Enveloppe','Verse','Capital brut','Net'], [
+      ['CTO', formatEuro(rCTO.totalVerse), formatEuro(rCTO.capitalBrut), formatEuro(netCTO)],
+      ['PEA' + (meilleur.n==='PEA'?' (meilleur)':''), formatEuro(rPEA.totalVerse), formatEuro(rPEA.capitalBrut), formatEuro(netPEA)],
+      ['PER', formatEuro(rPER.totalVerse), formatEuro(rPER.capitalBrut), formatEuro(netPER)]
+    ]);
+
+    titreSec('CE QUE CA CHANGE, CONCRETEMENT', VIOLET);
+    cartesDuo('Pension seule', formatEuro(pensionTotaleMensuelle)+'/mois', '+ Epargne (regle des 4%)', '+'+formatEuro(revenu4pct)+'/mois');
+    banniere('REVENU TOTAL MENSUEL ESTIME A LA RETRAITE', formatEuro(pensionTotaleMensuelle+revenu4pct), 'Pension + epargne (retrait de 4%/an du capital net, meilleure enveloppe: '+meilleur.n+')', VERT);
+
+    checkY(20);
+    doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.line(lm,y,rm,y);y+=5;
+    ligneTexte('Outil educatif NON OFFICIEL. Projections en euros constants (pouvoir d\'achat d\'aujourd\'hui), hypotheses de rendement reel qui ne garantissent en rien les performances futures. Pour votre estimation retraite officielle : info-retraite.fr. Developpe benevolement par J34NMY avec l\'assistance de Claude (Anthropic).');
+
+    doc.save('simulateur-retraite-capitalisation-'+new Date().toISOString().slice(0,10)+'.pdf');
+  }
+
   function calculerEpargne(pensionTotaleMensuelle, dureeCarriereAns, dateAujourdhui, dateRetraite){
     const epargneMensuelle = parseFloat(document.getElementById('epargneMensuelle').value) || 0;
     const tmi = parseFloat(document.getElementById('tmiActuel').value) / 100;
-    const indice = document.getElementById('indiceChoisi').value;
-    const rendementAnnuel = RENDEMENTS_INDICES[indice];
+    const rendementAnnuel = obtenirRendementIndice();
+    const labelIndice = obtenirLabelIndice();
 
     const dureeMois = Math.max(1, moisEntre(dateAujourdhui, dateRetraite));
     const dureeAns = dureeMois / 12;
@@ -508,12 +694,14 @@
     function projeterEnveloppe(montantMensuel, tauxAnnuel, dureeMois){
       const tauxMensuel = Math.pow(1+tauxAnnuel, 1/12) - 1;
       let capital = 0;
+      const snapshotsAnnuels = [];
       for(let m=0; m<dureeMois; m++){
         capital = capital*(1+tauxMensuel) + montantMensuel;
+        if((m+1)%12===0) snapshotsAnnuels.push(capital);
       }
       const totalVerse = montantMensuel * dureeMois;
       const gainBrut = capital - totalVerse;
-      return { capitalBrut: capital, totalVerse, gainBrut };
+      return { capitalBrut: capital, totalVerse, gainBrut, snapshotsAnnuels };
     }
 
     // Scenario 1 : 100% du montant epargne sur CHAQUE enveloppe separement
@@ -543,7 +731,7 @@
 
     let html = '<div class="result-section">';
     html += '<h3>Comparateur : 100% investi sur chaque enveloppe</h3>';
-    html += '<p style="font-size:.82rem;color:var(--gris-txt);">Indice choisi : <strong>' + LABELS_INDICES[indice] + '</strong> (' + (rendementAnnuel*100).toFixed(1) + '%/an réel) &mdash; ' + formatEuro(epargneMensuelle) + '/mois épargnés pendant ' + dureeAns.toFixed(0) + ' ans, jusqu\'au ' + formatDate(dateRetraite) + '.</p>';
+    html += '<p style="font-size:.82rem;color:var(--gris-txt);">Indice choisi : <strong>' + labelIndice + '</strong> (' + (rendementAnnuel*100).toFixed(1) + '%/an réel) &mdash; ' + formatEuro(epargneMensuelle) + '/mois épargnés pendant ' + dureeAns.toFixed(0) + ' ans, jusqu\'au ' + formatDate(dateRetraite) + '.</p>';
 
     html += '<table><thead><tr><th>Enveloppe</th><th style="text-align:right;">Versé</th><th style="text-align:right;">Capital brut</th><th style="text-align:right;">Impôt à la sortie</th><th style="text-align:right;">Net</th><th style="text-align:right;">Part perdue en impôt</th></tr></thead><tbody>';
     resultats.forEach(r=>{
@@ -594,6 +782,31 @@
     html += '<span style="font-size:26px;font-weight:600;color:#fff;">' + formatEuro(pensionTotaleMensuelle + revenuMensuelEquivalent4pct) + '</span></div>';
     html += '<p style="font-size:.78rem;color:var(--gris-txt);margin-top:10px;">La "règle des 4%" est une convention couramment utilisée (retirer 4% du capital chaque année) pour convertir un capital en revenu régulier sans l\'épuiser trop vite &mdash; ce n\'est pas une garantie, juste un repère.</p>';
     html += '</div>';
+
+    // Comparaison multi-scenarios (montants d'epargne differents), si renseignes
+    const scenarioTxt = (document.getElementById('scenarioMontants').value || '').trim();
+    if(scenarioTxt){
+      const montants = scenarioTxt.split(',').map(s=>parseFloat(s.trim())).filter(m=>!isNaN(m) && m>=0);
+      if(montants.length > 0){
+        html += '<div class="result-section">';
+        html += '<h3>Comparaison de plusieurs montants d\'épargne</h3>';
+        html += '<p style="font-size:.82rem;color:var(--gris-txt);">Meilleure enveloppe (net) pour chaque montant mensuel, sur ' + dureeAns.toFixed(0) + ' ans avec ' + labelIndice + '.</p>';
+        html += '<table><thead><tr><th>Épargne mensuelle</th><th style="text-align:right;">Versé</th><th style="text-align:right;">Meilleure enveloppe</th><th style="text-align:right;">Net</th><th style="text-align:right;">Revenu mensuel (règle des 4%)</th></tr></thead><tbody>';
+        montants.forEach(m=>{
+          const rC = projeterEnveloppe(m, rendementAnnuel, dureeMois);
+          const rP = projeterEnveloppe(m, rendementAnnuel, dureeMois);
+          const rR = projeterEnveloppe(m, Math.max(0, rendementAnnuel - FRAIS_GESTION_PER), dureeMois);
+          const iC = rC.gainBrut*0.314, nC = rC.capitalBrut-iC;
+          const iP = rP.gainBrut*0.186, nP = rP.capitalBrut-iP;
+          const iR = rR.totalVerse*tmi + rR.gainBrut*0.314, nR = rR.capitalBrut-iR;
+          const cands=[{n:'CTO',v:nC},{n:'PEA',v:nP},{n:'PER',v:nR}];
+          const best=cands.reduce((a,b)=>b.v>a.v?b:a);
+          html += '<tr><td style="font-weight:600;">' + formatEuro(m) + '/mois</td><td style="text-align:right;">' + formatEuro(m*dureeMois) + '</td><td style="text-align:right;">' + best.n + '</td><td style="text-align:right;font-weight:700;">' + formatEuro(best.v) + '</td><td style="text-align:right;">' + formatEuro(best.v*0.04/12) + '/mois</td></tr>';
+        });
+        html += '</tbody></table>';
+        html += '</div>';
+      }
+    }
 
     document.getElementById('resultatEpargne').innerHTML = html;
   }
