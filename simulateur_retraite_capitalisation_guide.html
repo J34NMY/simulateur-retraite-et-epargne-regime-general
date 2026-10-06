@@ -130,7 +130,17 @@
       </div>
       <div class="field">
         <label for="sexe">Sexe</label>
-        <select id="sexe"><option value="H">Homme</option><option value="F">Femme</option></select>
+        <select id="sexe" onchange="mettreAJourMajorationEnfants()"><option value="H">Homme</option><option value="F">Femme</option></select>
+      </div>
+      <div class="field">
+        <label for="nbEnfants">Nombre d'enfants</label>
+        <input id="nbEnfants" type="number" min="0" max="10" step="1" value="0" onchange="mettreAJourMajorationEnfants()" />
+        <small>Majoration de durée d'assurance (art. L351-4 CSS) + depuis le 01/09/2026, SAM sur 24 ans (1 enfant) ou 23 ans (2+) au lieu de 25.</small>
+      </div>
+      <div id="blocMajorationTrimestres" class="field" style="display:none;">
+        <label for="trimestresMajorationEnfants">Trimestres de majoration retenus</label>
+        <input id="trimestresMajorationEnfants" type="number" min="0" max="80" step="1" value="0" />
+        <small>Pré-rempli selon la règle par défaut (8 trimestres/enfant à la mère, 0 au père) — corrigez si votre situation diffère (partage déclaré, père ayant élevé seul l'enfant, enfant né avant 2010...).</small>
       </div>
       <div id="err-1" class="validation-error"></div>
     </div>
@@ -369,17 +379,30 @@
     document.getElementById('dateDepartRetraite').value = dateAgeLegal.toISOString().slice(0,10);
   }
 
+  function mettreAJourMajorationEnfants(){
+    const nb = parseInt(document.getElementById('nbEnfants').value) || 0;
+    const sexe = document.getElementById('sexe').value;
+    const bloc = document.getElementById('blocMajorationTrimestres');
+    bloc.style.display = (nb > 0) ? 'block' : 'none';
+    if(nb > 0){
+      const suggestion = (sexe === 'F') ? nb * 8 : 0;
+      document.getElementById('trimestresMajorationEnfants').value = suggestion;
+    } else {
+      document.getElementById('trimestresMajorationEnfants').value = 0;
+    }
+  }
+
   function toggleHypotheseSalaire(){
     const val = document.querySelector('input[name="hypotheseSalaire"]:checked').value;
     document.getElementById('palierDetails').style.display = (val==='paliers') ? 'block' : 'none';
   }
 
-  function projeterCarriere(dateNaissance, dateDebutCarriere, dateReference, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrutMensuel, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite){
+  function projeterCarriere(dateNaissance, dateDebutCarriere, dateReference, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrutMensuel, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants){
     const anneeDebut = dateDebutCarriere.getFullYear();
     const anneeRetraite = dateRetraite.getFullYear();
     const salairesAnnuels = [];
     let pointsTotal = pointsDejaAcquis;
-    let trimestresTotal = trimestresDejaAcquis;
+    let trimestresTotal = trimestresDejaAcquis + (trimestresMajorationEnfants || 0); // Majoration enfants (art. L351-4 CSS)
     let salaireMensuelCourant = salaireActuelBrutMensuel;
     const anneeDepart = Math.max(anneeDebut, dateReference.getFullYear());
 
@@ -407,10 +430,12 @@
 
     const salairesPlafonnesPASS = salairesAnnuels.map(s => Math.min(s, PASS_2026));
     const salairesTries = [...salairesPlafonnesPASS].sort((a,b)=>b-a);
-    const nbAnneesRetenues = Math.min(25, salairesTries.length);
+    // Decret n°2026-699 (01/09/2026) : 24 ans (1 enfant) ou 23 ans (2+ enfants) au lieu de 25
+    const nbAnneesSAM = (nbEnfants >= 2) ? 23 : (nbEnfants >= 1) ? 24 : 25;
+    const nbAnneesRetenues = Math.min(nbAnneesSAM, salairesTries.length);
     const sam = nbAnneesRetenues > 0 ? salairesTries.slice(0, nbAnneesRetenues).reduce((a,b)=>a+b,0) / nbAnneesRetenues : salaireActuelBrutMensuel*12;
 
-    return { trimestresTotal, pointsTotal, sam, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant };
+    return { trimestresTotal, pointsTotal, sam, nbAnneesSAM, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant };
   }
 
   function calculerPensionBase(dateNaissance, dateCalcul, trimestresValides, sam){
@@ -530,10 +555,12 @@
     const tauxDebut = parseFloat(document.getElementById('tauxDebut').value) || 0;
     const tauxMilieu = parseFloat(document.getElementById('tauxMilieu').value) || 0;
     const tauxFin = parseFloat(document.getElementById('tauxFin').value) || 0;
+    const nbEnfants = parseInt(document.getElementById('nbEnfants').value) || 0;
+    const trimestresMajorationEnfants = parseInt(document.getElementById('trimestresMajorationEnfants').value) || 0;
 
     const dateAujourdhui = new Date();
     dateAujourdhui.setHours(0,0,0,0);
-    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite);
+    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants);
 
     const resPension = calculerPensionBase(dateNaissance, dateRetraite, proj.trimestresTotal, proj.sam);
     const trimManquants = resPension.typeCoef === 'decote' ? Math.max(0, resPension.TR - proj.trimestresTotal) : 0;
@@ -549,7 +576,7 @@
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">';
     html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Départ à la retraite</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatDate(dateRetraite) + '</p><p style="font-size:.72rem;color:var(--gris-txt);margin:3px 0 0;">' + ageDepart.toFixed(1) + ' ans, ' + dureeCarriereAns.toFixed(0) + ' ans de carrière</p></div>';
     html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Trimestres validés</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + proj.trimestresTotal + ' / ' + resPension.TR + '</p></div>';
-    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">SAM (25 meilleures années)</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatEuro(proj.sam) + '/an</p></div>';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">SAM (' + proj.nbAnneesSAM + ' meilleures années)</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatEuro(proj.sam) + '/an</p></div>';
     html += '</div></div>';
 
     if(dateDebutCarriere < dateAujourdhui){

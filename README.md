@@ -25,6 +25,7 @@ Ce simulateur couvre les **salariés du régime général** en début de carriè
 
 - **Projection de carrière** : 30 à 40 ans, salaire constant ou par paliers, en euros constants (pouvoir d'achat d'aujourd'hui)
 - **Pension à la retraite** : base CNAV + complémentaire Agirc-Arrco, même moteur validé que le simulateur régime général classique
+- **Majoration de durée d'assurance pour enfants** (art. L351-4 CSS, jusqu'à 8 trimestres/enfant) + SAM calculé sur 24 ou 23 ans au lieu de 25 pour les parents (décret n°2026-699, pensions à effet du 01/09/2026)
 - **Comparateur d'épargne** : 100% investi sur chaque enveloppe séparément (CTO, PEA, PER) pour comparer directement le net après fiscalité 2026 (flat tax 31,4%, PEA 18,6%, PER mixte)
 - **ETF réels vérifiés** (ISIN, frais, éligibilité PEA) pour 4 indices : MSCI World, S&P 500, MSCI Emerging Markets, MSCI ACWI
 - **Réinvestissement de l'économie d'impôt du PER** simulé sur un PEA séparé

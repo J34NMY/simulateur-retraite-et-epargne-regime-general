@@ -84,10 +84,20 @@
         <small>Détermine l'âge légal, les trimestres requis et l'âge du taux plein automatique (67 ans).</small>
 
         <label for="sexe">Sexe</label>
-        <select id="sexe">
+        <select id="sexe" onchange="mettreAJourMajorationEnfants()">
           <option value="H">Homme</option>
           <option value="F">Femme</option>
         </select>
+
+        <label for="nbEnfants">Nombre d'enfants</label>
+        <input id="nbEnfants" type="number" min="0" max="10" step="1" value="0" onchange="mettreAJourMajorationEnfants()" />
+        <small>Ouvre droit à une majoration de durée d'assurance (art. L351-4 CSS), et depuis le 01/09/2026 (décret n°2026-699) réduit le nombre d'années retenues pour le SAM : 24 ans pour 1 enfant, 23 ans pour 2 enfants ou plus.</small>
+
+        <div id="blocMajorationTrimestres" style="display:none;">
+          <label for="trimestresMajorationEnfants">Trimestres de majoration retenus</label>
+          <input id="trimestresMajorationEnfants" type="number" min="0" max="80" step="1" value="0" />
+          <small>Pré-rempli selon la règle par défaut (8 trimestres/enfant pour la mère, 0 pour le père) — <strong>corrigez ce nombre</strong> si votre situation diffère : partage déclaré entre parents (enfants nés depuis 2010), père ayant élevé seul l'enfant, enfant né avant 2010 (toujours 8 trimestres à la mère, non partageables), etc. Ces trimestres comptent pour la durée d'assurance mais pas pour le SAM (pas de salaire associé).</small>
+        </div>
       </div>
 
       <div class="col">
@@ -269,6 +279,20 @@
     document.getElementById('palierDetails').style.display = (val==='paliers') ? 'block' : 'none';
   }
 
+  function mettreAJourMajorationEnfants(){
+    const nb = parseInt(document.getElementById('nbEnfants').value) || 0;
+    const sexe = document.getElementById('sexe').value;
+    const bloc = document.getElementById('blocMajorationTrimestres');
+    bloc.style.display = (nb > 0) ? 'block' : 'none';
+    if(nb > 0){
+      // Defaut legal : 8 trimestres/enfant a la mere (art. L351-4 CSS), 0 au pere sauf declaration/cas particulier
+      const suggestion = (sexe === 'F') ? nb * 8 : 0;
+      document.getElementById('trimestresMajorationEnfants').value = suggestion;
+    } else {
+      document.getElementById('trimestresMajorationEnfants').value = 0;
+    }
+  }
+
   function togglePersonnalise(){
     const val = document.getElementById('indiceChoisi').value;
     document.getElementById('personnaliseFields').style.display = (val==='personnalise') ? 'block' : 'none';
@@ -393,13 +417,13 @@
   // ============================================
   // PROJECTION DE CARRIERE ANNEE PAR ANNEE (en euros constants)
   // ============================================
-  function projeterCarriere(dateNaissance, dateDebutCarriere, dateReference, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrutMensuel, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite){
+  function projeterCarriere(dateNaissance, dateDebutCarriere, dateReference, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrutMensuel, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants){
     const anneeDebut = dateDebutCarriere.getFullYear();
     const anneeRetraite = dateRetraite.getFullYear();
     const salairesAnnuels = [];
     const historiqueAnnuel = [];
     let pointsTotal = pointsDejaAcquis;
-    let trimestresTotal = trimestresDejaAcquis;
+    let trimestresTotal = trimestresDejaAcquis + (trimestresMajorationEnfants || 0); // Majoration enfants (art. L351-4 CSS) : hors projection, ajoutee une fois
     let salaireMensuelCourant = salaireActuelBrutMensuel;
 
     // Si la date de reference (aujourd'hui) est apres le debut de carriere, on part du salaire ACTUEL
@@ -433,14 +457,16 @@
       historiqueAnnuel.push({ annee, salaireMensuel: salaireMensuelCourant, salaireAnnuel, trimestresCumules: trimestresTotal, pointsCumules: pointsTotal });
     }
 
-    // SAM : moyenne des 25 meilleures annees de salaire (plafonne au PASS pour le regime de base),
-    // ou de toutes les annees si la carriere en compte moins de 25
+    // SAM : moyenne des 25 (ou 24/23 si majoration enfants, decret 2026-699) meilleures annees de salaire (plafonne au PASS),
+    // ou de toutes les annees si la carriere en compte moins
     const salairesPlafonnesPASS = salairesAnnuels.map(s => Math.min(s, PASS_2026));
     const salairesTries = [...salairesPlafonnesPASS].sort((a,b)=>b-a);
-    const nbAnneesRetenues = Math.min(25, salairesTries.length);
+    // Decret n°2026-699 (01/09/2026) : 24 ans (1 enfant) ou 23 ans (2+ enfants) au lieu de 25
+    const nbAnneesSAM = (nbEnfants >= 2) ? 23 : (nbEnfants >= 1) ? 24 : 25;
+    const nbAnneesRetenues = Math.min(nbAnneesSAM, salairesTries.length);
     const sam = nbAnneesRetenues > 0 ? salairesTries.slice(0, nbAnneesRetenues).reduce((a,b)=>a+b,0) / nbAnneesRetenues : salaireActuelBrutMensuel*12;
 
-    return { trimestresTotal, pointsTotal, sam, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant, historiqueAnnuel };
+    return { trimestresTotal, pointsTotal, sam, nbAnneesSAM, nbAnneesProjetees: salairesAnnuels.length, dernierSalaireMensuel: salaireMensuelCourant, historiqueAnnuel };
   }
 
   function calculerPensionBase(dateNaissance, dateCalcul, trimestresValides, sam){
@@ -488,6 +514,8 @@
     const tauxDebut = parseFloat(document.getElementById('tauxDebut').value) || 0;
     const tauxMilieu = parseFloat(document.getElementById('tauxMilieu').value) || 0;
     const tauxFin = parseFloat(document.getElementById('tauxFin').value) || 0;
+    const nbEnfants = parseInt(document.getElementById('nbEnfants').value) || 0;
+    const trimestresMajorationEnfants = parseInt(document.getElementById('trimestresMajorationEnfants').value) || 0;
 
     if(!dateNaissance || isNaN(dateNaissance) || !dateDebutCarriere || isNaN(dateDebutCarriere) || !dateRetraite || isNaN(dateRetraite)){
       document.getElementById('resultatRetraite').innerHTML = '<div class="warn"><strong>Merci de renseigner toutes les dates.</strong></div>';
@@ -497,7 +525,7 @@
 
     const dateAujourdhui = new Date();
     dateAujourdhui.setHours(0,0,0,0);
-    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite);
+    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants);
 
     const resPension = calculerPensionBase(dateNaissance, dateRetraite, proj.trimestresTotal, proj.sam);
     const trimManquants = resPension.typeCoef === 'decote' ? Math.max(0, resPension.TR - proj.trimestresTotal) : 0;
@@ -513,7 +541,7 @@
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">';
     html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Départ à la retraite</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatDate(dateRetraite) + '</p><p style="font-size:.72rem;color:var(--gris-txt);margin:3px 0 0;">' + ageDepart.toFixed(1) + ' ans, ' + dureeCarriereAns.toFixed(0) + ' ans de carrière</p></div>';
     html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Trimestres validés</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + proj.trimestresTotal + ' / ' + resPension.TR + '</p></div>';
-    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">SAM (25 meilleures années)</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatEuro(proj.sam) + '/an</p></div>';
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">SAM (' + proj.nbAnneesSAM + ' meilleures années)</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatEuro(proj.sam) + '/an</p></div>';
     html += '</div></div>';
 
     if(dateDebutCarriere < dateAujourdhui){
@@ -579,13 +607,15 @@
     const tauxDebut = parseFloat(document.getElementById('tauxDebut').value) || 0;
     const tauxMilieu = parseFloat(document.getElementById('tauxMilieu').value) || 0;
     const tauxFin = parseFloat(document.getElementById('tauxFin').value) || 0;
+    const nbEnfants = parseInt(document.getElementById('nbEnfants').value) || 0;
+    const trimestresMajorationEnfants = parseInt(document.getElementById('trimestresMajorationEnfants').value) || 0;
     const epargneMensuelle = parseFloat(document.getElementById('epargneMensuelle').value) || 0;
     const tmi = parseFloat(document.getElementById('tmiActuel').value) / 100;
     const rendementAnnuel = obtenirRendementIndice();
     const labelIndice = obtenirLabelIndice();
 
     const dateAujourdhui = new Date(); dateAujourdhui.setHours(0,0,0,0);
-    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite);
+    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants);
     const resPension = calculerPensionBase(dateNaissance, dateRetraite, proj.trimestresTotal, proj.sam);
     const trimManquants = resPension.typeCoef === 'decote' ? Math.max(0, resPension.TR - proj.trimestresTotal) : 0;
     const coefArrco = getCoefficientAnticipationArrco(trimManquants);
@@ -681,7 +711,7 @@
     cartesDuo('Depart a la retraite', formatDate(d.dateRetraite), '', '');
 
     titreSec('VOTRE CARRIERE PROJETEE', VERT);
-    cartesDuo('Trimestres valides', d.proj.trimestresTotal + ' / ' + d.resPension.TR, 'SAM (25 meilleures annees)', formatEuro(d.proj.sam)+'/an');
+    cartesDuo('Trimestres valides', d.proj.trimestresTotal + ' / ' + d.resPension.TR, 'SAM (' + d.proj.nbAnneesSAM + ' meilleures annees)', formatEuro(d.proj.sam)+'/an');
 
     titreSec('PENSION A LA RETRAITE', VIOLET);
     if(d.resPension.typeCoef==='decote') ligneTexte('Decote : taux de ' + d.resPension.taux.toFixed(2) + '% (au lieu de 50%) - ' + d.trimManquants + ' trimestre(s) manquant(s).');

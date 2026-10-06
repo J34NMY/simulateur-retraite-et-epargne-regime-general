@@ -135,6 +135,21 @@
           &#9888;&#65039; <strong>Important :</strong> si votre date de début de carrière est déjà passée, la projection future démarre à partir d'<strong>aujourd'hui</strong>, pas de cette date — on ne peut pas épargner ni cotiser rétroactivement. Si vous comparez avec un autre simulateur qui, lui, part du début de carrière, mettez la date d'aujourd'hui dans ce champ pour obtenir des durées comparables.
         </div>
 
+        <h3 id="enfants">Enfants et majoration de durée d'assurance</h3>
+        <p>Le régime général accorde une <strong>majoration de durée d'assurance</strong> (MDA, article L351-4 du code de la sécurité sociale) pour chaque enfant — jusqu'à <strong>8 trimestres par enfant</strong> : 4 trimestres au titre de la maternité ou de l'adoption, 4 au titre de l'éducation.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Situation</th><th>Attribution par défaut</th></tr></thead>
+          <tbody>
+            <tr><td>Mère, enfant né avant 2010</td><td>8 trimestres (non partageables)</td></tr>
+            <tr><td>Mère, enfant né depuis 2010</td><td>8 trimestres par défaut (partage possible avec le père, sur déclaration)</td></tr>
+            <tr><td>Père</td><td>0 trimestre par défaut, sauf déclaration de partage ou s'il a élevé seul l'enfant</td></tr>
+          </tbody>
+        </table></div>
+        <p>Le champ <strong>"Nombre d'enfants"</strong> déclenche l'affichage d'un champ <strong>"Trimestres de majoration retenus"</strong>, pré-rempli selon la règle par défaut ci-dessus (selon le sexe renseigné) — <strong>à corriger vous-même</strong> si votre situation réelle diffère (partage déclaré, garde exclusive, enfant adopté...).</p>
+        <div class="alert alert-orange">
+          &#9888;&#65039; <strong>Depuis le 1<sup>er</sup> septembre 2026</strong> (décret n°2026-699 du 29 juillet 2026), le nombre d'années retenues pour le calcul du SAM (salaire annuel moyen) est réduit pour les parents bénéficiant de cette majoration : <strong>24 ans</strong> pour un enfant, <strong>23 ans</strong> pour deux enfants ou plus — au lieu de 25. L'outil applique cette règle automatiquement selon le nombre d'enfants renseigné. Ces trimestres de majoration comptent pour la durée d'assurance (décote/surcote) mais n'ajoutent aucun salaire au calcul du SAM lui-même.
+        </div>
+
         <h3 id="salaire">Évolution salariale</h3>
         <p>Deux hypothèses au choix :</p>
         <ul>
@@ -218,6 +233,8 @@
           <thead><tr><th>Texte</th><th>Objet</th></tr></thead>
           <tbody>
             <tr><td>Code de la sécurité sociale — Art. L351-1, L161-17-2, L161-17-3, L351-8</td><td>Calcul de la pension de base, âge légal, durée d'assurance</td></tr>
+            <tr><td>Code de la sécurité sociale — Art. L351-4</td><td>Majoration de durée d'assurance pour enfants (jusqu'à 8 trimestres/enfant)</td></tr>
+            <tr><td>Décret n°2026-699 du 29/07/2026</td><td>SAM calculé sur 24 ans (1 enfant) ou 23 ans (2+ enfants) au lieu de 25, pensions à effet du 01/09/2026</td></tr>
             <tr><td>Circulaire Cnav 2026-07 du 05/03/2026</td><td>Barème âge légal / trimestres requis par génération</td></tr>
             <tr><td>Circulaire Agirc-Arrco 2025-15-DT du 23/10/2025</td><td>Valeur du point et taux contractuels 2026</td></tr>
             <tr><td>Loi n°2025-1403 du 30/12/2025 (LFSS 2026)</td><td>Hausse de la CSG, PFU à 31,4%, prélèvements sociaux PEA/PER à 18,6%</td></tr>
@@ -234,6 +251,7 @@
           <li>Hypothèses de rendement <strong>réel</strong> (net d'inflation), volontairement prudentes — les performances passées ne préjugent pas des performances futures</li>
           <li>Le comparateur suppose un investissement <strong>constant et discipliné</strong> chaque mois, sans interruption ni retrait anticipé</li>
           <li>La fiscalité de sortie du PER suppose une sortie en capital en une fois — d'autres modes de sortie (rente, sorties fractionnées) auraient une fiscalité différente</li>
+          <li>Le nombre de trimestres de majoration enfants est <strong>pré-rempli selon la règle par défaut</strong> (8 trimestres/enfant à la mère) mais reste une estimation — l'attribution réelle dépend de déclarations, d'accords entre parents ou de situations particulières que l'outil ne peut pas deviner. Vérifiez et corrigez ce nombre selon votre situation réelle</li>
         </ul>
         <p><a class="back-top" href="#demarrage">&uarr; Retour à l'accueil</a></p>
       </section>
