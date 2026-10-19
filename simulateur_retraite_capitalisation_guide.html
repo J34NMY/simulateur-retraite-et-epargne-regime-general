@@ -160,10 +160,15 @@
       <div class="field">
         <label for="dateDebutCarriere">Date de début de carrière (ou déjà en cours)</label>
         <input type="date" id="dateDebutCarriere" />
-        <small>Si cette date est déjà passée, la projection future démarre à partir d'aujourd'hui, pas de cette date.</small>
+        <small>Sert uniquement au rythme de croissance de votre salaire. La projection démarre après la date du relevé (ou aujourd'hui), pas à cette date.</small>
       </div>
       <div class="field">
-        <label for="trimestresDejaAcquis">Trimestres déjà validés à ce jour</label>
+        <label for="dateReleve">Date du relevé de carrière (facultatif)</label>
+        <input type="date" id="dateReleve" />
+        <small>Date d'arrêté de vos trimestres et points (relevé info-retraite.fr). Si vide, la date du jour est utilisée. Les années qui suivent cette date sont projetées, y compris l'année en cours.</small>
+      </div>
+      <div class="field">
+        <label for="trimestresDejaAcquis">Trimestres validés à la date du relevé</label>
         <input type="number" id="trimestresDejaAcquis" min="0" max="220" step="1" value="0" />
       </div>
       <div class="field">
@@ -229,7 +234,8 @@
       <div class="field">
         <label for="dateDepartRetraite">Date de départ à la retraite</label>
         <input type="date" id="dateDepartRetraite" />
-        <small>Calculée automatiquement à l'âge légal de votre génération. Modifiable.</small>
+        <small>Calculée automatiquement à l'âge légal de votre génération. Modifiable. Au régime général, la retraite prend effet le <strong>1er jour d'un mois</strong> : une autre date est reportée au 1er du mois suivant.</small>
+        <small id="noteDateDepart" style="display:none;color:#b45309;font-weight:600;margin-top:4px;"></small>
         <button class="btn btn-secondary" style="margin-top:8px;" onclick="calculerDateDepartAuto()">Recalculer automatiquement</button>
       </div>
       <div class="field">
@@ -331,6 +337,9 @@
   ];
 
   const PASS_2026 = 48060;
+  // Seuil de validation d'un trimestre : 150 h x SMIC horaire au 01/01 (12,02 EUR en 2026) = 1 803 EUR
+  // (art. R351-9 CSS ; Circulaire Cnav 2025-33). 4 trimestres maximum par an.
+  const SEUIL_TRIMESTRE_2026 = 1803;
   const VALEUR_SERVICE_POINT_ARRCO = 1.4386;
   const PRIX_ACHAT_POINT_ARRCO = 20.1877;
   const TAUX_CONTRACTUEL_T1 = 0.0620;
@@ -377,13 +386,46 @@
     return d instanceof Date && !isNaN(d) ? d.toLocaleDateString('fr-FR') : '-';
   }
 
+  // Regime general : la date de depart est necessairement le 1er jour d'un mois
+  // (formulaire officiel de demande de retraite personnelle de l'Assurance retraite).
+  // Une date en cours de mois est reportee au 1er du mois suivant (jamais avant la date choisie).
+  function premierDuMoisSuivant(iso){
+    const p = (iso||'').split('-').map(Number);
+    if(p.length !== 3 || p.some(isNaN)) return { iso: iso, ajustee: false };
+    if(p[2] === 1) return { iso: iso, ajustee: false };
+    const y = p[1] === 12 ? p[0] + 1 : p[0];
+    const m = p[1] === 12 ? 1 : p[1] + 1;
+    return { iso: y + '-' + String(m).padStart(2,'0') + '-01', ajustee: true };
+  }
+  function normaliserDateDepart(){
+    const el = document.getElementById('dateDepartRetraite');
+    const note = document.getElementById('noteDateDepart');
+    const r = premierDuMoisSuivant(el.value);
+    if(r.ajustee){
+      const avant = new Date(el.value).toLocaleDateString('fr-FR');
+      el.value = r.iso;
+      note.textContent = 'Date ajustée : la retraite prend effet le 1er jour d\'un mois (' + avant + ' → ' + new Date(r.iso).toLocaleDateString('fr-FR') + ').';
+      note.style.display = 'block';
+      el.dataset.dateAjustee = r.iso;
+    } else if(el.dataset.dateAjustee !== el.value){
+      note.style.display = 'none';
+    }
+    return r;
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    const el = document.getElementById('dateDepartRetraite');
+    if(el) el.addEventListener('change', normaliserDateDepart);
+  });
+
   function calculerDateDepartAuto(){
     const dnVal = document.getElementById('dateNaissance').value;
     if(!dnVal) return;
     const dateNaissance = new Date(dnVal);
     const bareme = trouverBareme(dateNaissance);
     const dateAgeLegal = ajouterMois(dateNaissance, bareme.ageLegalAns*12 + bareme.ageLegalMois);
-    document.getElementById('dateDepartRetraite').value = dateAgeLegal.toISOString().slice(0,10);
+    document.getElementById('dateDepartRetraite').value = premierDuMoisSuivant(dateAgeLegal.toISOString().slice(0,10)).iso;
+    document.getElementById('noteDateDepart').style.display = 'none';
+    document.getElementById('dateDepartRetraite').dataset.dateAjustee = '';
   }
 
   function mettreAJourMajorationEnfants(){
@@ -411,9 +453,11 @@
     let pointsTotal = pointsDejaAcquis;
     let trimestresTotal = trimestresDejaAcquis + (trimestresMajorationEnfants || 0); // Majoration enfants (art. L351-4 CSS)
     let salaireMensuelCourant = salaireActuelBrutMensuel;
-    const anneeDepart = Math.max(anneeDebut, dateReference.getFullYear());
+    // Premiere annee projetee = annee du lendemain de la date du relevé (ex. relevé au 31/12/2025 -> 2026)
+    const anneeDepart = Math.max(anneeDebut, new Date(dateReference.getTime() + 86400000).getFullYear());
 
-    for(let annee = anneeDepart; annee < anneeRetraite; annee++){
+    // annee <= anneeRetraite : l'annee du depart est comptee au prorata des jours ecoules avant la date de depart
+    for(let annee = anneeDepart; annee <= anneeRetraite; annee++){
       const anneesDepuisDebut = annee - anneeDebut;
       let tauxCroissance;
       if(hypothese === 'constant'){
@@ -425,13 +469,32 @@
       }
       if(annee > anneeDepart) salaireMensuelCourant *= (1 + tauxCroissance/100);
 
-      const salaireAnnuel = salaireMensuelCourant * 12;
-      salairesAnnuels.push(Math.min(salaireAnnuel, PASS_2026 * 3));
+      let fraction = 1;
+      if(annee === anneeRetraite){
+        const joursEcoules = Math.round((dateRetraite.getTime() - Date.UTC(annee,0,1)) / 86400000);
+        const joursAnnee = ((annee%4===0 && annee%100!==0) || annee%400===0) ? 366 : 365;
+        fraction = Math.max(0, Math.min(1, joursEcoules / joursAnnee));
+        if(fraction === 0) break;
+      }
 
-      trimestresTotal += 4;
+      const salaireAnnuel = salaireMensuelCourant * 12 * fraction;
+      // Annee partielle (depart en cours d'annee) : exclue du calcul du SAM (annee incomplete)
+      if(fraction === 1) salairesAnnuels.push(Math.min(salaireAnnuel, PASS_2026 * 3));
 
-      const t1 = Math.min(salaireAnnuel, PASS_2026);
-      const t2 = Math.max(0, salaireAnnuel - PASS_2026);
+      // Regle exacte : 1 trimestre par tranche de 150 h de SMIC de salaire sur l'annee, 4 maximum
+      // Annee du depart : R351-1 CSS - cotisations arretees au dernier jour du trimestre civil precedant la date d'effet,
+      // donc seuls les trimestres civils entierement ecoules comptent (ex. depart 01/04 -> 1 max, 01/02 -> 0)
+      if(annee === anneeRetraite){
+        const trimCivilsEcoules = Math.floor(dateRetraite.getUTCMonth() / 3);
+        const salaireArrete = salaireMensuelCourant * 3 * trimCivilsEcoules;
+        trimestresTotal += Math.min(trimCivilsEcoules, Math.floor(salaireArrete / SEUIL_TRIMESTRE_2026));
+      } else {
+        trimestresTotal += Math.min(4, Math.floor(salaireAnnuel / SEUIL_TRIMESTRE_2026));
+      }
+
+      const passAnnee = PASS_2026 * fraction;
+      const t1 = Math.min(salaireAnnuel, passAnnee);
+      const t2 = Math.max(0, salaireAnnuel - passAnnee);
       pointsTotal += (t1 * TAUX_CONTRACTUEL_T1 + t2 * TAUX_CONTRACTUEL_T2) / PRIX_ACHAT_POINT_ARRCO;
     }
 
@@ -480,7 +543,7 @@
   }
 
   let etapeActuelle = 1;
-  const NOMS_ETAPES = ['Identité','Carrière','Évolution salariale','Retraite et épargne','Récapitulatif'];
+  const NOMS_ETAPES = ['Identité','Carrière','Évolution salariale','Retraite et épargne','Récapitulatif','Résultats'];
 
   function feedbackReagir(positif){
     document.getElementById('feedback-question').style.display = 'none';
@@ -491,21 +554,31 @@
     }
   }
 
+  // Affiche l'etape 'cible' (1 a 6). L'etape 6 = Resultats (pas de carte step-6 : c'est la section de resultats).
+  function afficherEtape(cible){
+    document.querySelectorAll('.step-card').forEach(c=>c.classList.remove('active'));
+    const sC=document.getElementById('step-'+cible); if(sC) sC.classList.add('active');
+    for(let i=1;i<=6;i++){
+      const d=document.getElementById('dot-'+i);
+      if(d){
+        d.classList.remove('active','done');
+        if(i<cible){d.classList.add('done');d.innerHTML='&#10003;';}
+        else {if(i===cible) d.classList.add('active'); d.textContent=i;}
+      }
+      const li=document.getElementById('line-'+i);
+      if(li){ if(i<cible) li.classList.add('done'); else li.classList.remove('done'); }
+    }
+    etapeActuelle=cible;
+    document.getElementById('step-current').textContent=cible;
+    document.getElementById('step-name').textContent=NOMS_ETAPES[cible-1];
+    document.getElementById('progress-fill').style.width=((cible/6)*100)+'%';
+  }
+
   function allerEtape(cible){
     document.querySelectorAll('.validation-error').forEach(e=>e.classList.remove('show'));
     if(cible>etapeActuelle && !validerEtapeWizard(etapeActuelle)) return;
-    if(cible<etapeActuelle) document.getElementById('results-section').classList.remove('active');
-    document.getElementById('step-'+etapeActuelle).classList.remove('active');
-    const dA=document.getElementById('dot-'+etapeActuelle);
-    if(dA){dA.classList.remove('active');dA.classList.add('done');dA.innerHTML='&#10003;';}
-    const li=document.getElementById('line-'+etapeActuelle);if(li)li.classList.add('done');
-    etapeActuelle=cible;
-    const sC=document.getElementById('step-'+etapeActuelle);if(sC)sC.classList.add('active');
-    const dC=document.getElementById('dot-'+etapeActuelle);
-    if(dC){dC.classList.remove('done');dC.classList.add('active');dC.textContent=etapeActuelle;}
-    document.getElementById('step-current').textContent=etapeActuelle;
-    document.getElementById('step-name').textContent=NOMS_ETAPES[etapeActuelle-1];
-    document.getElementById('progress-fill').style.width=((etapeActuelle/6)*100)+'%';
+    document.getElementById('results-section').classList.remove('active');
+    afficherEtape(cible);
     if(etapeActuelle===5) construireRecap();
     if(etapeActuelle===4 && !document.getElementById('dateDepartRetraite').value) calculerDateDepartAuto();
     window.scrollTo({top:0,behavior:'smooth'});
@@ -518,6 +591,8 @@
     if(n===2){
       if(!document.getElementById('dateDebutCarriere').value){ err.textContent='Date de début de carrière obligatoire.'; err.classList.add('show'); return false; }
       if(!document.getElementById('salaireActuelBrut').value){ err.textContent='Salaire brut mensuel actuel obligatoire.'; err.classList.add('show'); return false; }
+      const dr=document.getElementById('dateReleve').value;
+      if(dr && new Date(dr) > new Date()){ err.textContent='La date du relevé ne peut pas être dans le futur.'; err.classList.add('show'); return false; }
     }
     if(n===4){
       if(!document.getElementById('dateDepartRetraite').value){ err.textContent='Date de départ à la retraite obligatoire.'; err.classList.add('show'); return false; }
@@ -535,6 +610,7 @@
       {l:'Date de naissance',v:dn?new Date(dn).toLocaleDateString('fr-FR'):'Manquante'},
       {l:'Sexe',v:document.getElementById('sexe').value==='F'?'Femme':'Homme'},
       {l:'Début de carrière',v:ddc?new Date(ddc).toLocaleDateString('fr-FR'):'Manquante'},
+      {l:'Date du relevé',v:document.getElementById('dateReleve').value?new Date(document.getElementById('dateReleve').value).toLocaleDateString('fr-FR'):'Date du jour'},
       {l:'Trimestres déjà acquis',v:document.getElementById('trimestresDejaAcquis').value||'0'},
       {l:'Points Agirc-Arrco déjà acquis',v:document.getElementById('pointsAgircArrcoDejaAcquis').value||'0'},
       {l:'Salaire brut actuel',v:formatEuro(parseFloat(document.getElementById('salaireActuelBrut').value)||0)},
@@ -555,15 +631,17 @@
     document.getElementById('err-5').classList.remove('show');
     document.getElementById('resultatRetraite').innerHTML='<div class="info">Calcul en cours...</div>';
     document.getElementById('resultatEpargne').innerHTML='';
+    afficherEtape(6);
     document.getElementById('results-section').classList.add('active');
-    document.getElementById('results-section').scrollIntoView({behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'smooth'});
     setTimeout(calculer,50);
   }
 
   function calculer(){
     const dateNaissance = new Date(document.getElementById('dateNaissance').value);
     const dateDebutCarriere = new Date(document.getElementById('dateDebutCarriere').value);
-    const dateRetraite = new Date(document.getElementById('dateDepartRetraite').value);
+    const depNorm = normaliserDateDepart();
+    const dateRetraite = new Date(depNorm.iso);
     const trimestresDejaAcquis = parseInt(document.getElementById('trimestresDejaAcquis').value) || 0;
     const pointsDejaAcquis = parseFloat(document.getElementById('pointsAgircArrcoDejaAcquis').value) || 0;
     const salaireActuelBrut = parseFloat(document.getElementById('salaireActuelBrut').value) || 0;
@@ -576,7 +654,9 @@
 
     const dateAujourdhui = new Date();
     dateAujourdhui.setHours(0,0,0,0);
-    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateAujourdhui, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants);
+    const dateReleveSaisie = document.getElementById('dateReleve').value;
+    const dateReference = dateReleveSaisie ? new Date(dateReleveSaisie) : dateAujourdhui;
+    const proj = projeterCarriere(dateNaissance, dateDebutCarriere, dateReference, trimestresDejaAcquis, pointsDejaAcquis, salaireActuelBrut, hypothese, tauxDebut, tauxMilieu, tauxFin, dateRetraite, trimestresMajorationEnfants, nbEnfants);
 
     const resPension = calculerPensionBase(dateNaissance, dateRetraite, proj.trimestresTotal, proj.sam);
     const trimManquants = resPension.typeCoef === 'decote' ? Math.max(0, resPension.TR - proj.trimestresTotal) : 0;
@@ -589,6 +669,7 @@
 
     let html = '<div class="result-section">';
     html += '<h3>Votre carrière projetée</h3>';
+    if(depNorm.ajustee) html += '<div class="info">&#8505;&#65039; Au régime général, la retraite prend effet le 1er jour d\'un mois : votre date de départ a été reportée au ' + formatDate(dateRetraite) + '.</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">';
     html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Départ à la retraite</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + formatDate(dateRetraite) + '</p><p style="font-size:.72rem;color:var(--gris-txt);margin:3px 0 0;">' + ageDepart.toFixed(1) + ' ans, ' + dureeCarriereAns.toFixed(0) + ' ans de carrière</p></div>';
     html += '<div style="background:#f8fafc;border-radius:8px;padding:12px;"><p style="font-size:.76rem;color:var(--gris-txt);margin:0 0 4px;">Trimestres validés</p><p style="font-size:1.1rem;font-weight:600;margin:0;">' + proj.trimestresTotal + ' / ' + resPension.TR + '</p></div>';
@@ -597,7 +678,7 @@
 
     if(dateDebutCarriere < dateAujourdhui){
       const anneesDejaEcoulees = moisEntre(dateDebutCarriere, dateAujourdhui) / 12;
-      html += '<div class="info" style="margin-top:-4px;">&#8505;&#65039; Votre carrière a débuté il y a ' + anneesDejaEcoulees.toFixed(1) + ' an(s). Cette projection calcule le futur à partir d\'aujourd\'hui, pas de votre date de début de carrière.</div>';
+      html += '<div class="info" style="margin-top:-4px;">&#8505;&#65039; Votre carrière a débuté il y a ' + anneesDejaEcoulees.toFixed(1) + ' an(s). Cette projection calcule le futur à partir ' + (dateReleveSaisie ? 'de la date de votre relevé (' + formatDate(dateReference) + ')' : 'd\'aujourd\'hui') + ', pas de votre date de début de carrière. L\'année du départ est comptée au prorata des jours travaillés (1 trimestre par tranche de 1&nbsp;803&nbsp;&euro; de salaire).</div>';
     }
 
     html += '<div class="result-section">';
