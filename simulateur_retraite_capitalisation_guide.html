@@ -176,9 +176,9 @@
         <input type="number" id="pointsAgircArrcoDejaAcquis" min="0" step="10" value="0" />
       </div>
       <div class="field">
-        <label for="salaireActuelBrut">Salaire brut mensuel actuel</label>
-        <input type="number" id="salaireActuelBrut" min="0" step="50" value="" />
-        <small>Base de la projection — tous les montants seront en euros constants.</small>
+        <label for="salaireActuelBrut">Salaire brut annuel actuel</label>
+        <input type="number" id="salaireActuelBrut" min="0" step="500" value="" />
+        <small>Salaire brut sur 12 mois, comme sur info-retraite.fr (le net imposable n'est pas adapté). Base de la projection — tous les montants seront en euros constants.</small>
       </div>
       <div id="err-2" class="validation-error"></div>
     </div>
@@ -590,7 +590,7 @@
     if(n===1 && !document.getElementById('dateNaissance').value){ err.textContent='Date de naissance obligatoire.'; err.classList.add('show'); return false; }
     if(n===2){
       if(!document.getElementById('dateDebutCarriere').value){ err.textContent='Date de début de carrière obligatoire.'; err.classList.add('show'); return false; }
-      if(!document.getElementById('salaireActuelBrut').value){ err.textContent='Salaire brut mensuel actuel obligatoire.'; err.classList.add('show'); return false; }
+      if(!document.getElementById('salaireActuelBrut').value){ err.textContent='Salaire brut annuel actuel obligatoire.'; err.classList.add('show'); return false; }
       const dr=document.getElementById('dateReleve').value;
       if(dr && new Date(dr) > new Date()){ err.textContent='La date du relevé ne peut pas être dans le futur.'; err.classList.add('show'); return false; }
     }
@@ -613,7 +613,7 @@
       {l:'Date du relevé',v:document.getElementById('dateReleve').value?new Date(document.getElementById('dateReleve').value).toLocaleDateString('fr-FR'):'Date du jour'},
       {l:'Trimestres déjà acquis',v:document.getElementById('trimestresDejaAcquis').value||'0'},
       {l:'Points Agirc-Arrco déjà acquis',v:document.getElementById('pointsAgircArrcoDejaAcquis').value||'0'},
-      {l:'Salaire brut actuel',v:formatEuro(parseFloat(document.getElementById('salaireActuelBrut').value)||0)},
+      {l:'Salaire brut annuel actuel',v:formatEuro(parseFloat(document.getElementById('salaireActuelBrut').value)||0)},
       {l:'Évolution salariale',v:hyp==='constant'?'Constante':'Paliers de carrière'},
       {l:'Départ à la retraite',v:ddr?new Date(ddr).toLocaleDateString('fr-FR'):'Manquante'},
       {l:'Épargne mensuelle',v:formatEuro(parseFloat(document.getElementById('epargneMensuelle').value)||0)},
@@ -644,7 +644,8 @@
     const dateRetraite = new Date(depNorm.iso);
     const trimestresDejaAcquis = parseInt(document.getElementById('trimestresDejaAcquis').value) || 0;
     const pointsDejaAcquis = parseFloat(document.getElementById('pointsAgircArrcoDejaAcquis').value) || 0;
-    const salaireActuelBrut = parseFloat(document.getElementById('salaireActuelBrut').value) || 0;
+    // Saisie annuelle (comme info-retraite.fr) ; le moteur de projection travaille en mensuel
+    const salaireActuelBrut = (parseFloat(document.getElementById('salaireActuelBrut').value) || 0) / 12;
     const hypothese = document.querySelector('input[name="hypotheseSalaire"]:checked').value;
     const tauxDebut = parseFloat(document.getElementById('tauxDebut').value) || 0;
     const tauxMilieu = parseFloat(document.getElementById('tauxMilieu').value) || 0;
