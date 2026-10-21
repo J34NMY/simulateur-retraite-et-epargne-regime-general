@@ -679,7 +679,7 @@
 
     if(dateDebutCarriere < dateAujourdhui){
       const anneesDejaEcoulees = moisEntre(dateDebutCarriere, dateAujourdhui) / 12;
-      html += '<div class="info" style="margin-top:-4px;">&#8505;&#65039; Votre carrière a débuté il y a ' + anneesDejaEcoulees.toFixed(1) + ' an(s). Cette projection calcule le futur à partir ' + (dateReleveSaisie ? 'de la date de votre relevé (' + formatDate(dateReference) + ')' : 'd\'aujourd\'hui') + ', pas de votre date de début de carrière. L\'année du départ est comptée au prorata des jours travaillés (1 trimestre par tranche de 1&nbsp;803&nbsp;&euro; de salaire).</div>';
+      html += '<div class="info" style="margin-top:-4px;">&#8505;&#65039; Votre carrière a débuté il y a ' + anneesDejaEcoulees.toFixed(1) + ' an(s). Cette projection calcule le futur à partir ' + (dateReleveSaisie ? 'de la date de votre relevé (' + formatDate(dateReference) + ')' : 'd\'aujourd\'hui') + ', pas de votre date de début de carrière. Les trimestres sont validés à raison de 1 par tranche de 1&nbsp;803&nbsp;&euro; de salaire (4 par an maximum) ; l\'année du départ, seuls comptent les trimestres civils entiers écoulés avant la date d\'effet (art. R351-1 CSS).</div>';
     }
 
     html += '<div class="result-section">';
